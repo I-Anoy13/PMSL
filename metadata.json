@@ -1,0 +1,6 @@
+{
+  "name": "PMSL",
+  "description": "PMSL interactive ad reward simulator and developer sandbox with daily limits and coin transaction ledgers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

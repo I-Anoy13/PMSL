@@ -1,0 +1,175 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@500;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  --font-display: 'Orbitron', sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: #0a0e17;
+    color: #ffffff;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Glassmorphism theme panels */
+.glass-panel {
+  background: rgba(26, 31, 53, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 255, 135, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(10, 14, 23, 0.37);
+}
+
+.glass-panel-cyan {
+  background: rgba(26, 31, 53, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(10, 14, 23, 0.37);
+}
+
+/* Cosmic progress dots */
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 255, 135, 0.4);
+  margin: 0 4px;
+  transition: all 0.3s ease;
+}
+.progress-dot.active {
+  background: #00ff87;
+  box-shadow: 0 0 10px #00ff87;
+  border-color: #00ff87;
+}
+.progress-dot.empty {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+}
+
+/* Cosmic reward glowing effect */
+.reward-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 255, 135, 0.05) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.reward-glow-cyan {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.04) 0%, transparent 70%);
+  top: 30%;
+  right: 10%;
+  transform: translate(30%, -30%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Custom action button with neon green / cyan high contrast gradient */
+.action-btn {
+  background: linear-gradient(135deg, #00ff87 0%, #00d4ff 100%);
+  color: #0a0e17;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(0, 255, 135, 0.2);
+}
+
+.action-btn:hover:not(:disabled) {
+  opacity: 0.95;
+  box-shadow: 0 0 30px rgba(0, 255, 135, 0.45);
+  transform: translateY(-1px);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-neon-green {
+  background: rgba(0, 255, 135, 0.1);
+  border: 1px solid #00ff87;
+  color: #00ff87;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 255, 135, 0.1);
+}
+
+.btn-neon-green:hover:not(:disabled) {
+  background: #00ff87;
+  color: #0a0e17;
+  box-shadow: 0 0 20px rgba(0, 255, 135, 0.3);
+}
+
+.btn-neon-cyan {
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid #00d4ff;
+  color: #00d4ff;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+}
+
+.btn-neon-cyan:hover:not(:disabled) {
+  background: #00d4ff;
+  color: #0a0e17;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.btn-outline {
+  border: 1px solid rgba(160, 180, 200, 0.3);
+  background: transparent;
+  color: #ffffff;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 14, 23, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 135, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 135, 0.4);
+}
