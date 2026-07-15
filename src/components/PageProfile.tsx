@@ -1,5 +1,5 @@
 import { UserProfile, Transaction } from '../lib/mockFirebase';
-import { Award, Trophy, User, LogOut, ShieldAlert, Swords, Zap, Coins, Crosshair, Users, Crown, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Award, Trophy, User, LogOut, ShieldAlert, Swords, Zap, Coins, Crosshair, Users, Crown, Sparkles, CheckCircle2, RotateCcw } from 'lucide-react';
 
 interface PageProfileProps {
   user: UserProfile;
@@ -272,11 +272,29 @@ export default function PageProfile({
         </div>
       </div>
 
-      {/* Logout bottom block */}
-      <div className="flex justify-center pt-4">
+      {/* Reset & Logout bottom block */}
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
+        <button
+          onClick={() => {
+            if (window.confirm("Are you sure you want to completely reset the simulated database? This will clear all teams, tournaments, and transactions.")) {
+              Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('pmsl_')) {
+                  localStorage.removeItem(key);
+                }
+              });
+              window.location.reload();
+            }
+          }}
+          className="flex items-center gap-2 border border-amber-500/25 hover:bg-amber-500 hover:text-white text-amber-400 font-bold text-xs tracking-wider uppercase px-8 py-3 rounded-full transition cursor-pointer"
+          id="btn-profile-reset-db"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Reset Simulator Data</span>
+        </button>
+
         <button
           onClick={onLogoutClick}
-          className="flex items-center gap-2 border border-rose-500/25 hover:bg-rose-500 hover:text-white text-rose-400 font-bold text-xs tracking-wider uppercase px-8 py-3 rounded-full transition"
+          className="flex items-center gap-2 border border-rose-500/25 hover:bg-rose-500 hover:text-white text-rose-400 font-bold text-xs tracking-wider uppercase px-8 py-3 rounded-full transition cursor-pointer"
           id="btn-profile-logout"
         >
           <LogOut className="w-4 h-4" />

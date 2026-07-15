@@ -147,10 +147,10 @@ export default function App() {
       teamId: null,
       level: 'Bronze',
       stats: {
-        matches: 12,
-        wins: 3,
-        kills: 45,
-        top10: 8
+        matches: 0,
+        wins: 0,
+        kills: 0,
+        top10: 0
       },
       adsWatchedToday: 0,
       lastAdWatchDate: null,
