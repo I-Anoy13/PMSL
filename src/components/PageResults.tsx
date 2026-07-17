@@ -102,10 +102,10 @@ export default function PageResults({
                 {unlocked ? (
                   /* 3D-styled Podium Board */
                   <div className="space-y-6 animate-fade-in">
-                    <div className="grid grid-cols-3 gap-3 md:gap-5 pt-4 max-w-2xl mx-auto items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5 pt-4 max-w-2xl mx-auto items-stretch sm:items-end">
                       
                       {/* 2nd Place: Left side */}
-                      <div className="flex flex-col items-center">
+                      <div className="order-2 sm:order-1 flex flex-col items-center">
                         <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-xl shadow-md">
                           🥈
                         </div>
@@ -123,7 +123,7 @@ export default function PageResults({
                       </div>
 
                       {/* 1st Place Champion: Center */}
-                      <div className="flex flex-col items-center">
+                      <div className="order-1 sm:order-2 flex flex-col items-center">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-yellow-500 to-amber-300 border-2 border-yellow-400 flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(234,179,8,0.25)] relative animate-pulse">
                           🥇
                           <span className="absolute -top-3 text-xs">👑</span>
@@ -147,7 +147,7 @@ export default function PageResults({
                       </div>
 
                       {/* 3rd Place: Right side */}
-                      <div className="flex flex-col items-center">
+                      <div className="order-3 sm:order-3 flex flex-col items-center">
                         <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl shadow-md">
                           🥉
                         </div>

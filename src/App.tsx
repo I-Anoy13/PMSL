@@ -13,7 +13,8 @@ import {
   Play,
   LogIn,
   Mail,
-  Copy
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 import { MockDatabase, UserProfile, Team, Tournament, Transaction } from './lib/mockFirebase';
@@ -21,6 +22,8 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ParticleBackground from './components/ParticleBackground';
 import AdPlayer from './components/AdPlayer';
+import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import { auth, googleProvider } from './lib/firebase';
 
 // Import our modular pages
 import PageHome from './components/PageHome';
@@ -134,58 +137,97 @@ export default function App() {
   // Check if active user is admin
   const isAdmin = user?.email === 'anoypak3@gmail.com';
 
-  // --- Auth Handlers ---
-  const handleSimulatedGoogleLogin = (role: 'admin' | 'player') => {
-    const profile: UserProfile = {
-      uid: role === 'admin' ? 'uid-admin-99' : 'uid-player-11',
-      name: role === 'admin' ? 'PMSL Administrator' : 'PUBG_Mobile_Pro',
-      email: role === 'admin' ? 'anoypak3@gmail.com' : 'player_zero@gmail.com',
-      photoURL: role === 'admin' 
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop&q=80' 
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop&q=80',
-      coins: 100, // starting coins as specified
-      teamId: null,
-      level: 'Bronze',
-      stats: {
-        matches: 0,
-        wins: 0,
-        kills: 0,
-        top10: 0
-      },
-      adsWatchedToday: 0,
-      lastAdWatchDate: null,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString(),
-      referralCode: role === 'admin' ? 'REF-ADM9' : 'REF-PLAY1',
-      referredBy: null,
-      achievements: ['team_player']
-    };
+  // Listen for Firebase Auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const uid = firebaseUser.uid;
+        const email = firebaseUser.email || '';
+        const name = firebaseUser.displayName || 'PUBG Player';
+        const photoURL = firebaseUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop&q=80';
 
-    // Save user to simulated DB
-    MockDatabase.saveUser(profile);
-    localStorage.setItem('pmsl_active_uid', profile.uid);
-    setUser(profile);
-    setShowLoginModal(false);
-    showToast(`Logged in successfully! +100 free coins credited.`, 'success');
+        let existingUser = MockDatabase.getUser(uid);
+        
+        if (!existingUser) {
+          existingUser = {
+            uid,
+            name,
+            email,
+            photoURL,
+            coins: 100, // Claim 100 welcome coins!
+            teamId: null,
+            level: 'Bronze',
+            stats: {
+              matches: 0,
+              wins: 0,
+              kills: 0,
+              top10: 0
+            },
+            adsWatchedToday: 0,
+            lastAdWatchDate: null,
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            referralCode: 'REF-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+            referredBy: null,
+            achievements: ['team_player']
+          };
+          MockDatabase.saveUser(existingUser);
 
-    // Add first sign-up transaction if no prior ledger exists
-    const txs = MockDatabase.getCollection<Transaction>('transactions');
-    const userHasTx = txs.some(t => t.userId === profile.uid);
-    if (!userHasTx) {
-      createSimulatedTransaction(
-        profile.uid,
-        100,
-        'earned',
-        'daily_bonus',
-        'Initial Google Sign-on Bonus'
-      );
+          createSimulatedTransaction(
+            uid,
+            100,
+            'earned',
+            'daily_bonus',
+            'Google Live Login Welcome Bonus'
+          );
+        } else {
+          // Keep local cached user and Firebase properties synchronized
+          let changed = false;
+          if (existingUser.name !== name) { existingUser.name = name; changed = true; }
+          if (existingUser.email !== email) { existingUser.email = email; changed = true; }
+          if (existingUser.photoURL !== photoURL) { existingUser.photoURL = photoURL; changed = true; }
+          
+          if (changed) {
+            existingUser.lastLogin = new Date().toISOString();
+            MockDatabase.saveUser(existingUser);
+          }
+        }
+
+        localStorage.setItem('pmsl_active_uid', existingUser.uid);
+        setUser(existingUser);
+        addSystemLog(uid, 'Session authenticated: ' + name);
+      } else {
+        localStorage.removeItem('pmsl_active_uid');
+        setUser(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const name = result.user.displayName || 'PUBG Player';
+      showToast(`Logged in as ${name}!`, 'success');
+      setShowLoginModal(false);
+      setActivePage('dashboard');
+    } catch (error: any) {
+      console.error('Error during Google sign-in:', error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        showToast('Google login was cancelled.', 'info');
+      } else {
+        showToast(error.message || 'Google sign-in failed.', 'error');
+      }
     }
-
-    addSystemLog(profile.uid, 'User logged in: ' + profile.name);
-    setActivePage('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error('Firebase Auth logout error:', error);
+    }
     localStorage.removeItem('pmsl_active_uid');
     setUser(null);
     setActivePage('home');
@@ -396,6 +438,42 @@ export default function App() {
   // Filter transactions of active user
   const userTransactions = user ? transactions.filter(t => t.userId === user.uid) : [];
 
+  // Detect if we are loading inside the popup Callback
+  if (window.location.pathname === '/auth/callback' || window.location.pathname === '/auth/callback/') {
+    const hash = window.location.hash;
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    
+    if (token) {
+      if (window.opener) {
+        window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', accessToken: token }, window.location.origin);
+        window.close();
+      }
+    } else {
+      const search = window.location.search;
+      const queryParams = new URLSearchParams(search);
+      const error = queryParams.get('error');
+      if (error && window.opener) {
+        window.opener.postMessage({ type: 'GOOGLE_AUTH_ERROR', error }, window.location.origin);
+        window.close();
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-[#0a0e17] text-white flex flex-col items-center justify-center font-sans p-6 text-center">
+        <div className="space-y-4">
+          <div className="w-10 h-10 border-2 border-[#00ff87] border-t-transparent rounded-full animate-spin mx-auto" />
+          <h2 className="text-sm font-bold font-display uppercase tracking-widest text-[#00ff87]">
+            Google Authentication Successful
+          </h2>
+          <p className="text-[10px] text-slate-400">
+            Finalizing connection. This portal window will close shortly...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0e17] text-white flex flex-col font-sans selection:bg-[#00ff87]/30 selection:text-white">
       {/* Animated Glowing Particle Background */}
@@ -554,15 +632,15 @@ export default function App() {
         onCancel={handleAdPlayerCancel}
       />
 
-      {/* Simulation Secure login modal popup overlay */}
+      {/* Real Live Google login modal popup overlay */}
       <AnimatePresence>
         {showLoginModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="glass-panel border-[#00ff87]/30 p-6 max-w-sm w-full relative space-y-6 text-center shadow-2xl"
+              className="glass-panel border-[#00ff87]/30 p-6 max-w-md w-full relative space-y-6 text-center shadow-2xl"
             >
               {/* Close Modal button */}
               <button
@@ -584,31 +662,25 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Login pathways buttons */}
+              {/* Google Login via Firebase Auth */}
               <div className="space-y-3 pt-2">
-                {/* Regular login */}
                 <button
-                  onClick={() => handleSimulatedGoogleLogin('player')}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-[#0a0e17] hover:bg-slate-900 border border-white/10 hover:border-[#00d4ff] text-white rounded-lg text-xs font-bold transition-all uppercase font-mono shadow-inner"
-                  id="btn-login-player"
+                  onClick={handleGoogleLogin}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-white hover:bg-slate-100 border border-transparent text-slate-900 rounded-lg text-xs font-black transition-all uppercase font-sans shadow-md cursor-pointer"
+                  id="btn-real-google-login"
                 >
-                  <Mail className="w-4 h-4 text-[#00d4ff]" />
-                  <span>Google Player Account</span>
-                </button>
-
-                {/* Admin login */}
-                <button
-                  onClick={() => handleSimulatedGoogleLogin('admin')}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-[#0a0e17] hover:bg-slate-900 border border-white/10 hover:border-[#00ff87] text-[#00ff87] rounded-lg text-xs font-bold transition-all uppercase font-mono shadow-inner"
-                  id="btn-login-admin"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#00ff87]" />
-                  <span>Google Admin Account</span>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05" />
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                  </svg>
+                  <span>Continue with Google</span>
                 </button>
               </div>
 
               <p className="text-[9px] text-slate-500 leading-snug">
-                Simulated Google single-sign-on protocol. Choosing either account provides high fidelity local sandboxing immediately.
+                This app uses Google's live single-sign-on protocol. First-time login automatically grants admin privileges if your email matches <strong className="text-slate-400 font-mono">anoypak3@gmail.com</strong>.
               </p>
             </motion.div>
           </div>

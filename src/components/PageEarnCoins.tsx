@@ -194,7 +194,7 @@ export default function PageEarnCoins({
               <tr className="border-b border-white/5 text-slate-500 uppercase tracking-wider font-mono text-[10px]">
                 <th className="py-3 px-2">Date / Time</th>
                 <th className="py-3 px-2">Description</th>
-                <th className="py-3 px-2">Category</th>
+                <th className="py-3 px-2 hidden sm:table-cell">Category</th>
                 <th className="py-3 px-2 text-right">Amount</th>
               </tr>
             </thead>
@@ -216,7 +216,7 @@ export default function PageEarnCoins({
                       <td className="py-3 px-2 font-semibold text-white">
                         {tx.description}
                       </td>
-                      <td className="py-3 px-2">
+                      <td className="py-3 px-2 hidden sm:table-cell">
                         <span className="bg-slate-800 text-slate-400 font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded">
                           {tx.source}
                         </span>

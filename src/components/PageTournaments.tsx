@@ -225,9 +225,9 @@ export default function PageTournaments({
 
                   {isResultsUnlocked(selectedTournament.id) ? (
                     <div className="bg-gradient-to-tr from-[#00ff87]/5 via-black/40 to-yellow-500/5 border border-yellow-500/20 rounded-xl p-4.5 space-y-3">
-                      <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-stretch sm:items-end">
                         {/* Runner Up */}
-                        <div className="bg-black/35 border border-white/5 p-3 rounded-lg flex flex-col justify-center items-center mt-4">
+                        <div className="order-2 sm:order-1 bg-black/35 border border-white/5 p-3 rounded-lg flex flex-col justify-center items-center sm:mt-4">
                           <span className="text-xl">🥈</span>
                           <span className="text-[10px] text-slate-400 font-mono block">2nd Place</span>
                           <span className="text-xs font-bold text-white mt-1">
@@ -236,7 +236,7 @@ export default function PageTournaments({
                         </div>
 
                         {/* Winner */}
-                        <div className="bg-[#00ff87]/5 border-2 border-[#00ff87]/30 p-4 rounded-xl flex flex-col justify-center items-center shadow-lg relative -translate-y-2">
+                        <div className="order-1 sm:order-2 bg-[#00ff87]/5 border-2 border-[#00ff87]/30 p-4 rounded-xl flex flex-col justify-center items-center shadow-lg relative sm:-translate-y-2">
                           <span className="text-3xl">🥇</span>
                           <span className="text-[10px] text-[#00ff87] font-mono block uppercase font-black">CHAMPION</span>
                           <span className="text-sm font-black text-white mt-1">
@@ -245,7 +245,7 @@ export default function PageTournaments({
                         </div>
 
                         {/* Third */}
-                        <div className="bg-black/35 border border-white/5 p-3 rounded-lg flex flex-col justify-center items-center mt-4">
+                        <div className="order-3 sm:order-3 bg-black/35 border border-white/5 p-3 rounded-lg flex flex-col justify-center items-center sm:mt-4">
                           <span className="text-xl">🥉</span>
                           <span className="text-[10px] text-slate-400 font-mono block">3rd Place</span>
                           <span className="text-xs font-bold text-white mt-1">

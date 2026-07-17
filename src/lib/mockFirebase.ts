@@ -1,6 +1,12 @@
-// Fully functional offline-first Firebase & Firestore simulator
-// Implements users, teams, tournaments, transactions, adLogs, and referrals
 import { CoinTransaction } from '../types';
+import { db } from './firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 export interface UserProfile {
   uid: string;
@@ -66,12 +72,6 @@ export interface Transaction {
   timestamp: string;
 }
 
-// Initial Seeding
-const SEED_TOURNAMENTS: Tournament[] = [];
-
-const SEED_TEAMS: Team[] = [];
-
-// LocalStorage Helpers
 export class MockDatabase {
   static getCollection<T>(key: string, initialSeed: T[] = []): T[] {
     const data = localStorage.getItem(`pmsl_col_${key}`);
@@ -82,16 +82,98 @@ export class MockDatabase {
     return JSON.parse(data);
   }
 
-  static setCollection<T>(key: string, items: T[]): void {
+  // Purely updates the local storage cache without writing back to Firestore (called from snapshot listeners)
+  static setCollectionFromFirestore<T>(key: string, items: T[]): void {
     localStorage.setItem(`pmsl_col_${key}`, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent('pmsl-db-update', { detail: { key } }));
   }
 
+  // Standard collection writer (writes local state and pushes back to Firestore asynchronously)
+  static setCollection<T>(key: string, items: T[]): void {
+    localStorage.setItem(`pmsl_col_${key}`, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('pmsl-db-update', { detail: { key } }));
+
+    // Sync individual modified items to Firestore in the background
+    if (key === 'tournaments') {
+      items.forEach((item: any) => {
+        if (item && item.id) {
+          setDoc(doc(db, 'tournaments', item.id), item).catch(err => {
+            console.error("Error syncing tournament update to Firestore:", err);
+          });
+        }
+      });
+    } else if (key === 'users') {
+      items.forEach((item: any) => {
+        if (item && item.uid) {
+          setDoc(doc(db, 'users', item.uid), item).catch(err => {
+            console.error("Error syncing user update to Firestore:", err);
+          });
+        }
+      });
+    } else if (key === 'teams') {
+      items.forEach((item: any) => {
+        if (item && item.id) {
+          setDoc(doc(db, 'teams', item.id), item).catch(err => {
+            console.error("Error syncing team update to Firestore:", err);
+          });
+        }
+      });
+    } else if (key === 'transactions') {
+      items.forEach((item: any) => {
+        if (item && item.id) {
+          setDoc(doc(db, 'transactions', item.id), item).catch(err => {
+            console.error("Error syncing transaction update to Firestore:", err);
+          });
+        }
+      });
+    }
+  }
+
+  // Set up live real-time synchronization with Firestore!
   static initialize() {
-    this.getCollection<Tournament>('tournaments', SEED_TOURNAMENTS);
-    this.getCollection<Team>('teams', SEED_TEAMS);
-    this.getCollection<UserProfile>('users', []);
-    this.getCollection<Transaction>('transactions', []);
+    // 1. Listen to users
+    onSnapshot(collection(db, 'users'), (snapshot) => {
+      const users: UserProfile[] = [];
+      snapshot.forEach((doc) => {
+        users.push({ uid: doc.id, ...doc.data() } as UserProfile);
+      });
+      this.setCollectionFromFirestore<UserProfile>('users', users);
+    }, (error) => {
+      console.error("Firestore users listener error:", error);
+    });
+
+    // 2. Listen to teams
+    onSnapshot(collection(db, 'teams'), (snapshot) => {
+      const teams: Team[] = [];
+      snapshot.forEach((doc) => {
+        teams.push({ id: doc.id, ...doc.data() } as Team);
+      });
+      this.setCollectionFromFirestore<Team>('teams', teams);
+    }, (error) => {
+      console.error("Firestore teams listener error:", error);
+    });
+
+    // 3. Listen to tournaments
+    onSnapshot(collection(db, 'tournaments'), (snapshot) => {
+      const tournaments: Tournament[] = [];
+      snapshot.forEach((doc) => {
+        tournaments.push({ id: doc.id, ...doc.data() } as Tournament);
+      });
+      this.setCollectionFromFirestore<Tournament>('tournaments', tournaments);
+    }, (error) => {
+      console.error("Firestore tournaments listener error:", error);
+    });
+
+    // 4. Listen to transactions
+    onSnapshot(collection(db, 'transactions'), (snapshot) => {
+      const transactions: Transaction[] = [];
+      snapshot.forEach((doc) => {
+        transactions.push({ id: doc.id, ...doc.data() } as Transaction);
+      });
+      this.setCollectionFromFirestore<Transaction>('transactions', transactions);
+    }, (error) => {
+      console.error("Firestore transactions listener error:", error);
+    });
   }
 
   // --- Users Operations ---
@@ -108,7 +190,12 @@ export class MockDatabase {
     } else {
       users.push(user);
     }
-    this.setCollection<UserProfile>('users', users);
+    this.setCollectionFromFirestore<UserProfile>('users', users);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'users', user.uid), user).catch(err => {
+      console.error("Firestore saveUser failed:", err);
+    });
   }
 
   static getLevel(coinsEarned: number): 'Bronze' | 'Silver' | 'Gold' | 'Diamond' {
@@ -121,22 +208,29 @@ export class MockDatabase {
   // --- Transactions Operations ---
   static addTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>): void {
     const txs = this.getCollection<Transaction>('transactions');
+    const newTxId = 'tx-' + Math.random().toString(36).substring(2, 9);
     const newTx: Transaction = {
       ...tx,
-      id: 'tx-' + Math.random().toString(36).substring(2, 9),
+      id: newTxId,
       timestamp: new Date().toISOString()
     };
     txs.push(newTx);
-    this.setCollection<Transaction>('transactions', txs);
+    this.setCollectionFromFirestore<Transaction>('transactions', txs);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'transactions', newTxId), newTx).catch(err => {
+      console.error("Firestore addTransaction failed:", err);
+    });
   }
 
   // --- Team Operations ---
   static createTeam(name: string, tag: string, captainId: string, logo: string = '🛡️'): Team {
     const teams = this.getCollection<Team>('teams');
     const code = 'TEAM-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const teamId = 'team-' + Math.random().toString(36).substring(2, 9);
     
     const newTeam: Team = {
-      id: 'team-' + Math.random().toString(36).substring(2, 9),
+      id: teamId,
       name,
       tag: tag.toUpperCase(),
       logo,
@@ -149,7 +243,13 @@ export class MockDatabase {
     };
 
     teams.push(newTeam);
-    this.setCollection<Team>('teams', teams);
+    this.setCollectionFromFirestore<Team>('teams', teams);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'teams', teamId), newTeam).catch(err => {
+      console.error("Firestore createTeam failed:", err);
+    });
+
     return newTeam;
   }
 
@@ -168,7 +268,13 @@ export class MockDatabase {
     }
 
     team.members.push(userUid);
-    this.setCollection<Team>('teams', teams);
+    this.setCollectionFromFirestore<Team>('teams', teams);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'teams', team.id), team).catch(err => {
+      console.error("Firestore joinTeam failed:", err);
+    });
+
     return team;
   }
 
@@ -179,14 +285,23 @@ export class MockDatabase {
       const team = teams[index];
       team.members = team.members.filter(uid => uid !== userUid);
       
-      // If team is empty or captain left and no one else is there, delete it
       if (team.members.length === 0) {
         teams.splice(index, 1);
-      } else if (team.captainId === userUid) {
-        // Appoint next captain
-        team.captainId = team.members[0];
+        this.setCollectionFromFirestore<Team>('teams', teams);
+        // Delete in Firestore
+        deleteDoc(doc(db, 'teams', teamId)).catch(err => {
+          console.error("Firestore leaveTeam delete failed:", err);
+        });
+      } else {
+        if (team.captainId === userUid) {
+          team.captainId = team.members[0];
+        }
+        this.setCollectionFromFirestore<Team>('teams', teams);
+        // Sync in Firestore
+        setDoc(doc(db, 'teams', teamId), team).catch(err => {
+          console.error("Firestore leaveTeam failed:", err);
+        });
       }
-      this.setCollection<Team>('teams', teams);
     }
   }
 
@@ -197,11 +312,18 @@ export class MockDatabase {
       const team = teams[index];
       team.members = team.members.filter(uid => uid !== memberUid);
       
-      // If team is empty, delete it
       if (team.members.length === 0) {
         teams.splice(index, 1);
+        this.setCollectionFromFirestore<Team>('teams', teams);
+        deleteDoc(doc(db, 'teams', teamId)).catch(err => {
+          console.error("Firestore kickMember delete failed:", err);
+        });
+      } else {
+        this.setCollectionFromFirestore<Team>('teams', teams);
+        setDoc(doc(db, 'teams', teamId), team).catch(err => {
+          console.error("Firestore kickMember failed:", err);
+        });
       }
-      this.setCollection<Team>('teams', teams);
     }
 
     // Also update the kicked member's user profile teamId to null
@@ -209,21 +331,31 @@ export class MockDatabase {
     const userIndex = users.findIndex(u => u.uid === memberUid);
     if (userIndex >= 0) {
       users[userIndex].teamId = null;
-      this.setCollection<UserProfile>('users', users);
+      this.setCollectionFromFirestore<UserProfile>('users', users);
+      setDoc(doc(db, 'users', memberUid), users[userIndex]).catch(err => {
+        console.error("Firestore kickMember user update failed:", err);
+      });
     }
   }
 
   // --- Tournaments Operations ---
   static createTournament(tournament: Omit<Tournament, 'id' | 'registeredTeams' | 'createdAt'>): Tournament {
     const tournaments = this.getCollection<Tournament>('tournaments');
+    const tourId = 'tour-' + Math.random().toString(36).substring(2, 9);
     const newTour: Tournament = {
       ...tournament,
-      id: 'tour-' + Math.random().toString(36).substring(2, 9),
+      id: tourId,
       registeredTeams: [],
       createdAt: new Date().toISOString()
     };
     tournaments.push(newTour);
-    this.setCollection<Tournament>('tournaments', tournaments);
+    this.setCollectionFromFirestore<Tournament>('tournaments', tournaments);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'tournaments', tourId), newTour).catch(err => {
+      console.error("Firestore createTournament failed:", err);
+    });
+
     return newTour;
   }
 
@@ -235,12 +367,17 @@ export class MockDatabase {
     if (tour.registeredTeams.length >= tour.maxTeams) return 'Tournament registration closed.';
 
     tour.registeredTeams.push(teamId);
-    this.setCollection<Tournament>('tournaments', tours);
+    this.setCollectionFromFirestore<Tournament>('tournaments', tours);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'tournaments', tourId), tour).catch(err => {
+      console.error("Firestore registerTeamForTournament failed:", err);
+    });
+
     return null;
   }
 }
 
-// Keep standard mock Firebase format
 export const mockDb = {
   collection: (name: string) => ({
     where: () => ({
