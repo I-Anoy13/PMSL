@@ -48,6 +48,7 @@ export default function App() {
 
   // Authentication Dialog overlay
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginTrouble, setLoginTrouble] = useState(false);
 
   // Active details / ad state
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
@@ -207,6 +208,7 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     try {
+      setLoginTrouble(false);
       const result = await signInWithPopup(auth, googleProvider);
       const name = result.user.displayName || 'PUBG Player';
       showToast(`Logged in as ${name}!`, 'success');
@@ -216,8 +218,15 @@ export default function App() {
       console.error('Error during Google sign-in:', error);
       if (error.code === 'auth/popup-closed-by-user') {
         showToast('Google login was cancelled.', 'info');
+      } else if (error.code === 'auth/popup-blocked') {
+        showToast('Popup blocked! Please allow popups or open the app in a new tab.', 'error');
+        setLoginTrouble(true);
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        showToast('Another login request was started or cancelled.', 'info');
+        setLoginTrouble(true);
       } else {
         showToast(error.message || 'Google sign-in failed.', 'error');
+        setLoginTrouble(true);
       }
     }
   };
@@ -640,16 +649,19 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="glass-panel border-[#00ff87]/30 p-6 max-w-md w-full relative space-y-6 text-center shadow-2xl"
+              className="glass-panel border-[#00ff87]/30 p-6 max-w-md w-full relative space-y-5 text-center shadow-2xl"
             >
               {/* Close Modal button */}
               <button
-                onClick={() => setShowLoginModal(false)}
+                onClick={() => {
+                  setShowLoginModal(false);
+                  setLoginTrouble(false);
+                }}
                 className="absolute top-4 right-4 p-1 hover:bg-white/10 rounded-full transition text-slate-400"
               >
                 <X className="w-4 h-4" />
               </button>
-
++
               <div className="space-y-2">
                 <div className="w-12 h-12 bg-[#00ff87]/15 border border-[#00ff87]/30 text-[#00ff87] rounded-xl flex items-center justify-center mx-auto shadow-md">
                   <LogIn className="w-6 h-6" />
@@ -662,8 +674,33 @@ export default function App() {
                 </p>
               </div>
 
+              {/* Troubleshooting warning box for Iframes / Popup Blockers */}
+              {(window.self !== window.top || loginTrouble) && (
+                <div className="text-left bg-slate-950/80 border border-yellow-500/30 rounded-xl p-4 font-mono text-[10px] leading-relaxed space-y-2">
+                  <div className="flex items-start gap-1.5 text-yellow-500 font-bold uppercase tracking-wider">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Iframe / Popup Restriction Detected</span>
+                  </div>
+                  <p className="text-slate-400 font-sans text-[10.5px]">
+                    You are running inside a preview iframe. Browser policies block Google sign-in popups here.
+                  </p>
+                  <p className="text-slate-400 font-sans text-[10.5px]">
+                    Please click below to open the app in a standalone tab and sign in smoothly, or manually enable popups.
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#00ff87]/15 hover:bg-[#00ff87]/25 border border-[#00ff87]/30 text-[#00ff87] rounded text-[11px] font-black uppercase transition font-sans cursor-pointer w-full justify-center"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open App in New Tab</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Google Login via Firebase Auth */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-1">
                 <button
                   onClick={handleGoogleLogin}
                   className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-white hover:bg-slate-100 border border-transparent text-slate-900 rounded-lg text-xs font-black transition-all uppercase font-sans shadow-md cursor-pointer"
