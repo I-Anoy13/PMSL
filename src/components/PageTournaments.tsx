@@ -332,7 +332,7 @@ export default function PageTournaments({
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((slotNum) => {
+                    {Array.from({ length: 17 }, (_, i) => i + 4).map((slotNum) => {
                       const stringSlot = slotNum.toString();
                       const assignedTeamId = selectedTournament.slots?.[stringSlot] || '';
                       const team = getTeamObj(assignedTeamId);

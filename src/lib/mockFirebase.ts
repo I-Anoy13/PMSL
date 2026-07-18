@@ -378,6 +378,17 @@ export class MockDatabase {
     if (tour.registeredTeams.length >= tour.maxTeams) return 'Tournament registration closed.';
 
     tour.registeredTeams.push(teamId);
+
+    // Auto-allocate slot from slot 4 onwards
+    if (!tour.slots) {
+      tour.slots = {};
+    }
+    let assignedSlot = 4;
+    while (tour.slots[assignedSlot.toString()]) {
+      assignedSlot++;
+    }
+    tour.slots[assignedSlot.toString()] = teamId;
+
     this.setCollectionFromFirestore<Tournament>('tournaments', tours);
 
     // Sync to Firestore
@@ -439,6 +450,35 @@ export class MockDatabase {
     });
     if (updatedUsers) {
       this.setCollectionFromFirestore<UserProfile>('users', users);
+    }
+
+    // Clean up tournament registrations and slots
+    const tournaments = this.getCollection<Tournament>('tournaments');
+    let updatedTournaments = false;
+    tournaments.forEach(tour => {
+      let modified = false;
+      if (tour.registeredTeams && tour.registeredTeams.includes(teamId)) {
+        tour.registeredTeams = tour.registeredTeams.filter(id => id !== teamId);
+        modified = true;
+      }
+      if (tour.slots) {
+        Object.entries(tour.slots).forEach(([slotNum, tid]) => {
+          if (tid === teamId) {
+            delete tour.slots![slotNum];
+            modified = true;
+          }
+        });
+      }
+      if (modified) {
+        updatedTournaments = true;
+        // Sync to Firestore
+        setDoc(doc(db, 'tournaments', tour.id), tour).catch(err => {
+          console.error("Firestore cleanup team from tournament failed:", err);
+        });
+      }
+    });
+    if (updatedTournaments) {
+      this.setCollectionFromFirestore<Tournament>('tournaments', tournaments);
     }
   }
 }

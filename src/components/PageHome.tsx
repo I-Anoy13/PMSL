@@ -40,7 +40,7 @@ export default function PageHome({
           <span>PUBG Mobile Custom Leagues</span>
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-display font-black tracking-tight leading-none text-white uppercase select-none drop-shadow-[0_0_15px_rgba(0,255,135,0.2)]">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl font-display font-black tracking-tight leading-none text-white uppercase select-none drop-shadow-[0_0_15px_rgba(0,255,135,0.2)]">
           PUBG Mobile <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff87] to-[#00d4ff] drop-shadow-[0_0_30px_rgba(0,212,255,0.3)]">
             Tournaments

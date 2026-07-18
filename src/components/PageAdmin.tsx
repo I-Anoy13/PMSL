@@ -764,7 +764,7 @@ export default function PageAdmin({
             {slotTourId ? (
               <div className="space-y-6 pt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((slotNum) => {
+                  {Array.from({ length: 17 }, (_, i) => i + 4).map((slotNum) => {
                     const stringSlot = slotNum.toString();
                     const activeAssignedTeamId = slotsConfig[stringSlot] || '';
 
