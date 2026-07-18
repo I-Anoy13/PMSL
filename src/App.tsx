@@ -623,6 +623,7 @@ export default function App() {
               <PageAdmin 
                 tournaments={tournaments}
                 teams={teams}
+                allUsers={allUsers}
                 onCreateTournament={handleAdminCreateTournament}
                 onUpdateTournamentStatus={handleAdminUpdateStatus}
               />
@@ -717,7 +718,7 @@ export default function App() {
               </div>
 
               <p className="text-[9px] text-slate-500 leading-snug">
-                This app uses Google's live single-sign-on protocol. First-time login automatically grants admin privileges if your email matches <strong className="text-slate-400 font-mono">anoypak3@gmail.com</strong>.
+                This app uses Google's live single-sign-on protocol. First-time login automatically syncs your profile.
               </p>
             </motion.div>
           </div>

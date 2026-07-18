@@ -60,6 +60,17 @@ export interface Tournament {
     third: string | null;
   };
   createdAt: string;
+  slots?: Record<string, string>; // Maps "slotNumber" (e.g., "1", "2") to teamId
+  matchResults?: Array<{
+    matchNumber: number;
+    map: string;
+    rankings: Array<{
+      teamId: string;
+      placement: number; // 1 to 16
+      kills: number;
+      totalPoints: number;
+    }>;
+  }>;
 }
 
 export interface Transaction {
@@ -375,6 +386,60 @@ export class MockDatabase {
     });
 
     return null;
+  }
+
+  static saveTournament(tour: Tournament): void {
+    const tours = this.getCollection<Tournament>('tournaments');
+    const index = tours.findIndex(t => t.id === tour.id);
+    if (index >= 0) {
+      tours[index] = tour;
+    } else {
+      tours.push(tour);
+    }
+    this.setCollectionFromFirestore<Tournament>('tournaments', tours);
+
+    // Sync to Firestore
+    setDoc(doc(db, 'tournaments', tour.id), tour).catch(err => {
+      console.error("Firestore saveTournament failed:", err);
+    });
+  }
+
+  static deleteTournament(tourId: string): void {
+    const tours = this.getCollection<Tournament>('tournaments');
+    const filtered = tours.filter(t => t.id !== tourId);
+    this.setCollectionFromFirestore<Tournament>('tournaments', filtered);
+
+    // Sync to Firestore
+    deleteDoc(doc(db, 'tournaments', tourId)).catch(err => {
+      console.error("Firestore deleteTournament failed:", err);
+    });
+  }
+
+  static deleteTeam(teamId: string): void {
+    const teams = this.getCollection<Team>('teams');
+    const filtered = teams.filter(t => t.id !== teamId);
+    this.setCollectionFromFirestore<Team>('teams', filtered);
+
+    // Sync to Firestore
+    deleteDoc(doc(db, 'teams', teamId)).catch(err => {
+      console.error("Firestore deleteTeam failed:", err);
+    });
+
+    // Reset teamId for all members of this team
+    const users = this.getCollection<UserProfile>('users');
+    let updatedUsers = false;
+    users.forEach(u => {
+      if (u.teamId === teamId) {
+        u.teamId = null;
+        updatedUsers = true;
+        setDoc(doc(db, 'users', u.uid), u).catch(err => {
+          console.error("Firestore reset user teamId failed:", err);
+        });
+      }
+    });
+    if (updatedUsers) {
+      this.setCollectionFromFirestore<UserProfile>('users', users);
+    }
   }
 }
 
