@@ -157,128 +157,142 @@ export class MockDatabase {
   static initialize() {
     // 1. Listen to users
     onSnapshot(collection(db, 'users'), (snapshot) => {
-      if (snapshot.empty) {
-        // Self-healing: If Firestore is empty but we have local users, upload them to Firestore!
-        const localUsers = this.getCollection<UserProfile>('users');
-        if (localUsers.length > 0) {
-          console.log(`[PMSL Self-Healing] Firestore 'users' is empty. Uploading ${localUsers.length} local users...`);
-          localUsers.forEach(user => {
-            setDoc(doc(db, 'users', user.uid), user).catch(err => {
-              console.error("Self-healing: Error uploading user to Firestore:", err);
-            });
-          });
-          return;
-        }
-      }
-      const users: UserProfile[] = [];
+      const firestoreUsers: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        users.push({ uid: doc.id, ...doc.data() } as UserProfile);
+        firestoreUsers.push({ uid: doc.id, ...doc.data() } as UserProfile);
       });
-      this.setCollectionFromFirestore<UserProfile>('users', users);
+
+      const localUsers = this.getCollection<UserProfile>('users');
+      const mergedUsers = [...firestoreUsers];
+      let hasChange = false;
+
+      localUsers.forEach(localUser => {
+        if (!firestoreUsers.some(fsUser => fsUser.uid === localUser.uid)) {
+          mergedUsers.push(localUser);
+          hasChange = true;
+          console.log(`[PMSL Sync] Preserving local user profile and uploading to Firestore: ${localUser.name} (${localUser.uid})`);
+          setDoc(doc(db, 'users', localUser.uid), localUser).catch(err => {
+            console.error("Sync error: Failed to upload local user profile:", err);
+          });
+        }
+      });
+
+      this.setCollectionFromFirestore<UserProfile>('users', mergedUsers);
     }, (error) => {
       console.error("Firestore users listener error:", error);
     });
 
     // 2. Listen to teams
     onSnapshot(collection(db, 'teams'), (snapshot) => {
-      if (snapshot.empty) {
-        // Self-healing: If Firestore is empty but we have local teams, upload them to Firestore!
-        const localTeams = this.getCollection<Team>('teams');
-        if (localTeams.length > 0) {
-          console.log(`[PMSL Self-Healing] Firestore 'teams' is empty. Uploading ${localTeams.length} local teams...`);
-          localTeams.forEach(team => {
-            setDoc(doc(db, 'teams', team.id), team).catch(err => {
-              console.error("Self-healing: Error uploading team to Firestore:", err);
-            });
-          });
-          return;
-        }
-      }
-      const teams: Team[] = [];
+      const firestoreTeams: Team[] = [];
       snapshot.forEach((doc) => {
-        teams.push({ id: doc.id, ...doc.data() } as Team);
+        firestoreTeams.push({ id: doc.id, ...doc.data() } as Team);
       });
-      this.setCollectionFromFirestore<Team>('teams', teams);
+
+      const localTeams = this.getCollection<Team>('teams');
+      const mergedTeams = [...firestoreTeams];
+      let hasChange = false;
+
+      localTeams.forEach(localTeam => {
+        if (!firestoreTeams.some(fsTeam => fsTeam.id === localTeam.id)) {
+          mergedTeams.push(localTeam);
+          hasChange = true;
+          console.log(`[PMSL Sync] Preserving local team and uploading to Firestore: ${localTeam.name} (${localTeam.id})`);
+          setDoc(doc(db, 'teams', localTeam.id), localTeam).catch(err => {
+            console.error("Sync error: Failed to upload local team:", err);
+          });
+        }
+      });
+
+      this.setCollectionFromFirestore<Team>('teams', mergedTeams);
     }, (error) => {
       console.error("Firestore teams listener error:", error);
     });
 
     // 3. Listen to tournaments
     onSnapshot(collection(db, 'tournaments'), (snapshot) => {
-      if (snapshot.empty) {
-        // Self-healing: If Firestore is empty but we have local tournaments, upload them to Firestore!
-        const localTournaments = this.getCollection<Tournament>('tournaments');
-        if (localTournaments.length > 0) {
-          console.log(`[PMSL Self-Healing] Firestore 'tournaments' is empty. Uploading ${localTournaments.length} local tournaments...`);
-          localTournaments.forEach(tour => {
-            setDoc(doc(db, 'tournaments', tour.id), tour).catch(err => {
-              console.error("Self-healing: Error uploading tournament to Firestore:", err);
-            });
-          });
-          return;
-        }
-      }
-      const tournaments: Tournament[] = [];
+      const firestoreTournaments: Tournament[] = [];
       snapshot.forEach((doc) => {
-        tournaments.push({ id: doc.id, ...doc.data() } as Tournament);
+        firestoreTournaments.push({ id: doc.id, ...doc.data() } as Tournament);
       });
-      this.setCollectionFromFirestore<Tournament>('tournaments', tournaments);
+
+      const localTournaments = this.getCollection<Tournament>('tournaments');
+      const mergedTournaments = [...firestoreTournaments];
+      let hasChange = false;
+
+      localTournaments.forEach(localTour => {
+        if (!firestoreTournaments.some(fsTour => fsTour.id === localTour.id)) {
+          mergedTournaments.push(localTour);
+          hasChange = true;
+          console.log(`[PMSL Sync] Preserving local tournament and uploading to Firestore: ${localTour.name} (${localTour.id})`);
+          setDoc(doc(db, 'tournaments', localTour.id), localTour).catch(err => {
+            console.error("Sync error: Failed to upload local tournament:", err);
+          });
+        }
+      });
+
+      this.setCollectionFromFirestore<Tournament>('tournaments', mergedTournaments);
     }, (error) => {
       console.error("Firestore tournaments listener error:", error);
     });
 
     // 4. Listen to transactions
     onSnapshot(collection(db, 'transactions'), (snapshot) => {
-      if (snapshot.empty) {
-        // Self-healing: If Firestore is empty but we have local transactions, upload them to Firestore!
-        const localTransactions = this.getCollection<Transaction>('transactions');
-        if (localTransactions.length > 0) {
-          console.log(`[PMSL Self-Healing] Firestore 'transactions' is empty. Uploading ${localTransactions.length} local transactions...`);
-          localTransactions.forEach(tx => {
-            setDoc(doc(db, 'transactions', tx.id), tx).catch(err => {
-              console.error("Self-healing: Error uploading transaction to Firestore:", err);
-            });
-          });
-          return;
-        }
-      }
-      const transactions: Transaction[] = [];
+      const firestoreTransactions: Transaction[] = [];
       snapshot.forEach((doc) => {
-        transactions.push({ id: doc.id, ...doc.data() } as Transaction);
+        firestoreTransactions.push({ id: doc.id, ...doc.data() } as Transaction);
       });
-      this.setCollectionFromFirestore<Transaction>('transactions', transactions);
+
+      const localTransactions = this.getCollection<Transaction>('transactions');
+      const mergedTransactions = [...firestoreTransactions];
+      let hasChange = false;
+
+      localTransactions.forEach(localTx => {
+        if (!firestoreTransactions.some(fsTx => fsTx.id === localTx.id)) {
+          mergedTransactions.push(localTx);
+          hasChange = true;
+          console.log(`[PMSL Sync] Preserving local transaction and uploading to Firestore: ${localTx.id}`);
+          setDoc(doc(db, 'transactions', localTx.id), localTx).catch(err => {
+            console.error("Sync error: Failed to upload local transaction:", err);
+          });
+        }
+      });
+
+      this.setCollectionFromFirestore<Transaction>('transactions', mergedTransactions);
     }, (error) => {
       console.error("Firestore transactions listener error:", error);
     });
 
     // 5. Listen to system_config
     onSnapshot(collection(db, 'system_config'), (snapshot) => {
-      if (snapshot.empty) {
-        // Self-healing: If Firestore is empty but we have local system_config, upload them to Firestore!
-        const localConfigs = this.getCollection<SystemConfig>('system_config');
-        if (localConfigs.length > 0) {
-          console.log(`[PMSL Self-Healing] Firestore 'system_config' is empty. Uploading ${localConfigs.length} local configs...`);
-          localConfigs.forEach(config => {
-            setDoc(doc(db, 'system_config', config.id), config).catch(err => {
-              console.error("Self-healing: Error uploading config to Firestore:", err);
-            });
-          });
-          return;
-        } else {
-          // Sync default configuration to Firestore so it is saved online
-          const defaultConfig = this.getAdsConfig();
-          console.log(`[PMSL Self-Healing] Firestore 'system_config' is empty. Pre-seeding default configuration...`);
-          setDoc(doc(db, 'system_config', defaultConfig.id), defaultConfig).catch(err => {
-            console.error("Self-healing: Error uploading default config to Firestore:", err);
-          });
-          return;
-        }
-      }
-      const configs: SystemConfig[] = [];
+      const firestoreConfigs: SystemConfig[] = [];
       snapshot.forEach((doc) => {
-        configs.push({ id: doc.id, ...doc.data() } as SystemConfig);
+        firestoreConfigs.push({ id: doc.id, ...doc.data() } as SystemConfig);
       });
-      this.setCollectionFromFirestore<SystemConfig>('system_config', configs);
+
+      const localConfigs = this.getCollection<SystemConfig>('system_config');
+      const mergedConfigs = [...firestoreConfigs];
+
+      localConfigs.forEach(localConfig => {
+        if (!firestoreConfigs.some(fsConfig => fsConfig.id === localConfig.id)) {
+          mergedConfigs.push(localConfig);
+          console.log(`[PMSL Sync] Preserving local system config and uploading to Firestore: ${localConfig.id}`);
+          setDoc(doc(db, 'system_config', localConfig.id), localConfig).catch(err => {
+            console.error("Sync error: Failed to upload local system config:", err);
+          });
+        }
+      });
+
+      if (mergedConfigs.length === 0) {
+        const defaultConfig = this.getAdsConfig();
+        mergedConfigs.push(defaultConfig);
+        console.log(`[PMSL Sync] Uploading default system config to Firestore...`);
+        setDoc(doc(db, 'system_config', defaultConfig.id), defaultConfig).catch(err => {
+          console.error("Sync error: Failed to upload default system config:", err);
+        });
+      }
+
+      this.setCollectionFromFirestore<SystemConfig>('system_config', mergedConfigs);
     }, (error) => {
       console.error("Firestore system_config listener error:", error);
     });

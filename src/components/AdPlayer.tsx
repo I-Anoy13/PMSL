@@ -218,6 +218,11 @@ export default function AdPlayer({ isOpen, onComplete, onCancel, adUrl }: AdPlay
                   <p className="text-[10px] text-[#00ff87]/80">
                     If pop-up did not open, click above to visit sponsor offer and unlock your reward.
                   </p>
+                  {window.self !== window.top && (
+                    <div className="mt-2.5 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[9.5px] text-amber-400/90 leading-relaxed font-sans max-w-sm mx-auto text-center">
+                      <strong>⚠️ Sandbox Iframe Detected:</strong> External monetization links (like Adsterra) automatically redirect suspicious embedded frame traffic to Google.com to prevent ad fraud. To test your smart links fully, click <strong>"Open App in New Tab"</strong> from the Login Screen!
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
