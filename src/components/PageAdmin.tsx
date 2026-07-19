@@ -88,6 +88,7 @@ export default function PageAdmin({
   // --- TEAMS & USERS STATE ---
   const [teamSearch, setTeamSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('all');
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editTeamName, setEditTeamName] = useState('');
   const [editTeamTag, setEditTeamTag] = useState('');
@@ -357,10 +358,20 @@ export default function PageAdmin({
     t.tag.toLowerCase().includes(teamSearch.toLowerCase())
   );
 
-  const filteredUsers = allUsers.filter(u => 
-    u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-    u.email.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = allUsers.filter(u => {
+    const matchesSearch = u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+                          u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+                          (u.gameName || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+                          (u.fullName || '').toLowerCase().includes(userSearch.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (selectedTournamentFilter === 'all') return true;
+
+    const tour = tournaments.find(t => t.id === selectedTournamentFilter);
+    if (!tour) return false;
+
+    return !!(u.teamId && tour.registeredTeams.includes(u.teamId));
+  });
 
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-8">
@@ -549,17 +560,68 @@ export default function PageAdmin({
                       </div>
                     </div>
 
-                    {/* Registered Squads List */}
+                    {/* Registered Squads & Members Roster List */}
                     {tour.registeredTeams.length > 0 && (
-                      <div className="bg-black/35 border border-white/5 rounded-lg p-2.5 space-y-1.5">
-                        <span className="text-[8px] text-slate-500 uppercase font-mono block">Registered squads:</span>
-                        <div className="flex flex-wrap gap-1.5">
+                      <div className="bg-black/40 border border-[#00ff87]/10 rounded-xl p-3.5 space-y-3">
+                        <span className="text-[10px] text-[#00ff87] uppercase font-mono tracking-widest font-bold block">
+                          Registered Squads & Player Roster ({tour.registeredTeams.length})
+                        </span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {tour.registeredTeams.map((tid) => {
                             const squad = teams.find((t) => t.id === tid);
+                            if (!squad) return null;
+                            const roster = allUsers.filter(u => squad.members.includes(u.uid));
                             return (
-                              <span key={tid} className="bg-slate-800/80 text-white text-[9px] px-2 py-0.5 rounded border border-white/5 font-mono">
-                                {squad ? `${squad.logo} ${squad.name}` : `ID: ${tid}`}
-                              </span>
+                              <div key={tid} className="bg-slate-950/60 rounded-xl p-3 border border-white/5 space-y-2.5">
+                                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">{squad.logo || '🛡️'}</span>
+                                    <span className="font-bold text-white text-xs">{squad.name}</span>
+                                    <span className="text-[9px] bg-[#00ff87]/10 text-[#00ff87] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider">
+                                      {squad.tag}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] text-slate-500 font-mono">Captain ID: {squad.captainId.slice(0, 5)}...</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <span className="text-[8px] text-slate-400 uppercase tracking-widest font-mono block">Squad Roster:</span>
+                                  {roster.length === 0 ? (
+                                    <span className="text-[10px] text-slate-500 italic block">No players registered under this squad yet</span>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {roster.map((player) => (
+                                        <div key={player.uid} className="flex items-center justify-between text-[10px] bg-white/[0.02] rounded-lg px-2.5 py-1.5 border border-white/5 hover:bg-white/[0.04] transition-all">
+                                          <div className="flex items-center gap-2">
+                                            <img src={player.photoURL} className="w-4.5 h-4.5 rounded-full border border-white/10" referrerPolicy="no-referrer" />
+                                            <div className="flex flex-col">
+                                              <span className="font-bold text-white text-[10.5px]">{player.name}</span>
+                                              <span className="text-[8px] text-slate-400 font-mono">
+                                                IGN: <strong className="text-[#00ff87]">{player.gameName || 'Not Set'}</strong> | Name: {player.fullName || 'Not Set'}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[#00ff87] font-mono font-semibold text-[10.5px]">🪙 {player.coins}</span>
+                                            <button
+                                              onClick={() => {
+                                                setActiveTab('teams');
+                                                setSelectedTournamentFilter(tour.id);
+                                                setUserSearch(player.email);
+                                                setAdjustingUserUid(player.uid);
+                                                setCoinAdjustmentAmount(100);
+                                              }}
+                                              className="text-[9px] text-[#00ff87] hover:text-white uppercase font-bold tracking-wider hover:underline px-1.5 py-0.5 rounded bg-[#00ff87]/10 hover:bg-[#00ff87]/20 border border-[#00ff87]/10"
+                                              title="Quick balance adjust"
+                                            >
+                                              Modify
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -673,24 +735,43 @@ export default function PageAdmin({
 
           {/* User profiles database */}
           <div className="glass-panel border-white/5 p-6 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-rose-400" />
+                <UserCheck className="w-5 h-5 text-[#00ff87]" />
                 <h3 className="font-display font-bold text-xs uppercase tracking-widest text-white">
-                  Player Accounts Directory ({allUsers.length})
+                  Player Accounts Directory ({filteredUsers.length} / {allUsers.length})
                 </h3>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search players..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="bg-black/40 border border-white/5 rounded-xl pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500 w-60"
-                />
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Tournament Filter selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Tournament Filter:</span>
+                  <select
+                    value={selectedTournamentFilter}
+                    onChange={(e) => setSelectedTournamentFilter(e.target.value)}
+                    className="bg-black/60 border border-[#00ff87]/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff87] font-mono"
+                  >
+                    <option value="all">🏆 All Accounts</option>
+                    {tournaments.map((tour) => (
+                      <option key={tour.id} value={tour.id}>
+                        🎮 {tour.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search name, email, or IGN..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="bg-black/40 border border-white/5 rounded-xl pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-[#00ff87] w-60"
+                  />
+                </div>
               </div>
             </div>
 
@@ -720,6 +801,15 @@ export default function PageAdmin({
                           <span className="font-bold text-white">{p.name}</span>
                           <span className="text-[10px] text-slate-400">Name: {p.fullName || 'Not Set'}</span>
                           <span className="text-[10px] text-[#00ff87] font-mono">IGN: {p.gameName || 'Not Set'}</span>
+                          {p.teamId && (
+                            <div className="flex flex-wrap gap-1 mt-1 max-w-[200px]">
+                              {tournaments.filter(t => t.registeredTeams.includes(p.teamId!)).map(t => (
+                                <span key={t.id} className="text-[8px] bg-rose-950/40 text-rose-300 px-1 py-0.5 rounded border border-rose-900/20 font-mono uppercase tracking-wider">
+                                  🏆 {t.name.split(' ').slice(0, 3).join(' ')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-2 text-slate-400 font-mono">{p.email}</td>

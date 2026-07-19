@@ -63,17 +63,8 @@ export default function AdPlayer({ isOpen, onComplete, onCancel, adUrl }: AdPlay
       setIsCompleted(false);
       setShowWarning(false);
       setClicksCount(0);
-
-      // Trigger popunder / new window redirect
-      if (adUrl && adUrl.startsWith('http')) {
-        try {
-          window.open(adUrl, '_blank', 'noopener,noreferrer');
-        } catch (e) {
-          console.warn("Popup block prevented automatic ad redirection. User click required.", e);
-        }
-      }
     }
-  }, [isOpen, adUrl]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
