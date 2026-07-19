@@ -185,7 +185,34 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTournaments.push({ id: doc.id, ...doc.data() } as Tournament);
       });
-      this.setCollectionFromFirestore<Tournament>('tournaments', firestoreTournaments);
+
+      if (firestoreTournaments.length === 0) {
+        const defaultTournament: Tournament = {
+          id: 'tour-pmsl-arena-season-1',
+          name: 'PMSL Arena Season 1 Grand League',
+          description: 'The ultimate showdown of professional squads. Register your team and battle for the massive prize pool!',
+          date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          entryFee: 50,
+          prizePool: 5000,
+          maxTeams: 16,
+          registeredTeams: [],
+          status: 'upcoming',
+          results: {
+            winner: null,
+            runnerUp: null,
+            third: null
+          },
+          createdAt: new Date().toISOString(),
+          slots: {}
+        };
+        console.log(`[PMSL Sync] Uploading default tournament to Firestore...`);
+        setDoc(doc(db, 'tournaments', defaultTournament.id), defaultTournament).catch(err => {
+          console.error("Sync error: Failed to upload default tournament:", err);
+        });
+        this.setCollectionFromFirestore<Tournament>('tournaments', [defaultTournament]);
+      } else {
+        this.setCollectionFromFirestore<Tournament>('tournaments', firestoreTournaments);
+      }
     }, (error) => {
       console.error("Firestore tournaments listener error:", error);
       window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'tournaments', error } }));

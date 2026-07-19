@@ -21,25 +21,9 @@ export default function Navbar({
   isAdmin 
 }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
 
   return (
     <nav className="fixed top-0 w-full bg-[#0a0e17]/95 backdrop-blur-lg border-b border-[#00ff87]/20 z-40 transition-all">
-      {isIframe && (
-        <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-4 py-2 text-center text-[10px] sm:text-xs font-bold shadow-md flex flex-wrap items-center justify-center gap-2 relative z-50">
-          <span className="flex items-center gap-1">
-            ⚠️ <strong>Sandbox Frame Detected:</strong> Monetization links (Adsterra) redirect embedded frame traffic to Google.com to prevent ad fraud.
-          </span>
-          <a
-            href={window.location.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-slate-950 hover:bg-slate-900 text-[#00ff87] font-mono px-2.5 py-1 rounded text-[9px] uppercase tracking-wider transition shadow-sm inline-block"
-          >
-            Open App in New Tab ↗
-          </a>
-        </div>
-      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}

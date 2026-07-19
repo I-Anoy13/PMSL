@@ -1,20 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
-import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-// Detect if we should use the custom PMSL project or the platform-provided workspace project.
-// We use the PMSL project if we are on the custom domain, or if VITE_FIREBASE_PROJECT_ID is set to 'pmslleagu',
-// or if the default system config isn't available.
-const isPMSL = 
-  (typeof window !== 'undefined' && (
-    window.location.hostname.includes('pmslleagu') || 
-    window.location.hostname.includes('pmsl')
-  )) || 
-  (import.meta as any).env.VITE_FIREBASE_PROJECT_ID === 'pmslleagu' ||
-  !firebaseAppletConfig.projectId;
-
-const firebaseConfig = isPMSL ? {
+// We ALWAYS use the user's custom PMSL project as requested.
+// This ensures that live checks and deployment always connect to your real PMSL Firebase project.
+const firebaseConfig = {
   apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || "AIzaSyBl6JCCxMXuJU8xFQGrWYRzQvI-3bBFXjA",
   authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || "pmslleagu.firebaseapp.com",
   projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || "pmslleagu",
@@ -22,14 +12,6 @@ const firebaseConfig = isPMSL ? {
   messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || "83604420517",
   appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || "1:83604420517:web:72cde07bf6dfdd83f3da4c",
   measurementId: (import.meta as any).env.VITE_FIREBASE_MEASUREMENT_ID || "G-LWSJ75HM50"
-} : {
-  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || firebaseAppletConfig.apiKey,
-  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || firebaseAppletConfig.authDomain,
-  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || firebaseAppletConfig.projectId,
-  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET || firebaseAppletConfig.storageBucket,
-  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseAppletConfig.messagingSenderId,
-  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || firebaseAppletConfig.appId,
-  measurementId: (import.meta as any).env.VITE_FIREBASE_MEASUREMENT_ID || firebaseAppletConfig.measurementId || ""
 };
 
 // Initialize Firebase
@@ -44,15 +26,12 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-// Determine Firestore Database ID
-// For the custom PMSL project, we must use the default database (undefined).
-// For the turab project, we must use its specific platform database ID.
-const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
-  firebaseConfig.projectId === 'pmslleagu' 
-    ? undefined 
-    : (firebaseAppletConfig.firestoreDatabaseId || undefined)
-);
+// Since you are using your real 'pmslleagu' Firebase project, we default to the standard
+// default database (which corresponds to database ID '(default)', initialized by passing undefined).
+// This means you do not need to provide or configure a custom database ID at all!
+const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || undefined;
 
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, databaseId);
+
