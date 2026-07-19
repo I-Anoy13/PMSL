@@ -586,7 +586,9 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 relative z-10">
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-10 ${
+        typeof window !== 'undefined' && window.self !== window.top ? 'pt-28 sm:pt-28' : 'pt-20'
+      }`}>
         
         {/* Toast Alerts Notification System */}
         <AnimatePresence>

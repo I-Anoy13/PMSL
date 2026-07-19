@@ -45,12 +45,12 @@ googleProvider.setCustomParameters({
 });
 
 // Determine Firestore Database ID
-// For the custom PMSL project, we must use the default database ('default').
+// For the custom PMSL project, we must use the default database (undefined).
 // For the turab project, we must use its specific platform database ID.
 const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
   firebaseConfig.projectId === 'pmslleagu' 
-    ? '(default)' 
-    : (firebaseAppletConfig.firestoreDatabaseId || '(default)')
+    ? undefined 
+    : (firebaseAppletConfig.firestoreDatabaseId || undefined)
 );
 
 export const db = initializeFirestore(app, {
