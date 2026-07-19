@@ -68,6 +68,21 @@ export default function App() {
 
   // Initialize DB and fetch states
   useEffect(() => {
+    // Set up database change listeners first so we don't miss initial load updates!
+    const handleDbUpdate = () => {
+      syncLocalState();
+    };
+
+    const handleSyncError = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { collection, error } = customEvent.detail || {};
+      console.error(`[PMSL Sync Error] Collection: ${collection}`, error);
+      showToast(`Sync Error (${collection}): Please check database permissions or network connection.`, 'error');
+    };
+
+    window.addEventListener('pmsl-db-update', handleDbUpdate);
+    window.addEventListener('pmsl-sync-error', handleSyncError);
+
     MockDatabase.initialize();
     syncLocalState();
 
@@ -82,13 +97,9 @@ export default function App() {
       }
     }
 
-    // Set up database change listeners
-    const handleDbUpdate = () => {
-      syncLocalState();
-    };
-    window.addEventListener('pmsl-db-update', handleDbUpdate);
     return () => {
       window.removeEventListener('pmsl-db-update', handleDbUpdate);
+      window.removeEventListener('pmsl-sync-error', handleSyncError);
     };
   }, []);
 

@@ -49,8 +49,8 @@ googleProvider.setCustomParameters({
 // For the turab project, we must use its specific platform database ID.
 const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
   firebaseConfig.projectId === 'pmslleagu' 
-    ? 'default' 
-    : (firebaseAppletConfig.firestoreDatabaseId || 'default')
+    ? '(default)' 
+    : (firebaseAppletConfig.firestoreDatabaseId || '(default)')
 );
 
 export const db = initializeFirestore(app, {

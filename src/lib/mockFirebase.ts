@@ -161,41 +161,10 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreUsers.push({ uid: doc.id, ...doc.data() } as UserProfile);
       });
-
-      const localUsers = this.getCollection<UserProfile>('users');
-      const mergedUsers: UserProfile[] = [];
-
-      firestoreUsers.forEach(fsUser => {
-        const localUser = localUsers.find(u => u.uid === fsUser.uid);
-        if (localUser) {
-          mergedUsers.push({
-            ...localUser,
-            ...fsUser,
-            name: fsUser.name || localUser.name,
-            email: fsUser.email || localUser.email,
-            gameName: fsUser.gameName || localUser.gameName || '',
-            fullName: fsUser.fullName || localUser.fullName || '',
-            role: fsUser.role || localUser.role || 'user',
-            coins: Math.max(fsUser.coins ?? 0, localUser.coins ?? 0)
-          });
-        } else {
-          mergedUsers.push(fsUser);
-        }
-      });
-
-      localUsers.forEach(localUser => {
-        if (!firestoreUsers.some(fsUser => fsUser.uid === localUser.uid)) {
-          mergedUsers.push(localUser);
-          console.log(`[PMSL Sync] Preserving local user profile and uploading to Firestore: ${localUser.name} (${localUser.uid})`);
-          setDoc(doc(db, 'users', localUser.uid), localUser).catch(err => {
-            console.error("Sync error: Failed to upload local user profile:", err);
-          });
-        }
-      });
-
-      this.setCollectionFromFirestore<UserProfile>('users', mergedUsers);
+      this.setCollectionFromFirestore<UserProfile>('users', firestoreUsers);
     }, (error) => {
       console.error("Firestore users listener error:", error);
+      window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'users', error } }));
     });
 
     // 2. Listen to teams
@@ -204,36 +173,10 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTeams.push({ id: doc.id, ...doc.data() } as Team);
       });
-
-      const localTeams = this.getCollection<Team>('teams');
-      const mergedTeams: Team[] = [];
-
-      firestoreTeams.forEach(fsTeam => {
-        const localTeam = localTeams.find(t => t.id === fsTeam.id);
-        if (localTeam) {
-          mergedTeams.push({
-            ...localTeam,
-            ...fsTeam,
-            members: fsTeam.members?.length > 0 ? fsTeam.members : (localTeam.members || [])
-          });
-        } else {
-          mergedTeams.push(fsTeam);
-        }
-      });
-
-      localTeams.forEach(localTeam => {
-        if (!firestoreTeams.some(fsTeam => fsTeam.id === localTeam.id)) {
-          mergedTeams.push(localTeam);
-          console.log(`[PMSL Sync] Preserving local team and uploading to Firestore: ${localTeam.name} (${localTeam.id})`);
-          setDoc(doc(db, 'teams', localTeam.id), localTeam).catch(err => {
-            console.error("Sync error: Failed to upload local team:", err);
-          });
-        }
-      });
-
-      this.setCollectionFromFirestore<Team>('teams', mergedTeams);
+      this.setCollectionFromFirestore<Team>('teams', firestoreTeams);
     }, (error) => {
       console.error("Firestore teams listener error:", error);
+      window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'teams', error } }));
     });
 
     // 3. Listen to tournaments
@@ -242,43 +185,10 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTournaments.push({ id: doc.id, ...doc.data() } as Tournament);
       });
-
-      const localTournaments = this.getCollection<Tournament>('tournaments');
-      const mergedTournaments: Tournament[] = [];
-
-      firestoreTournaments.forEach(fsTour => {
-        const localTour = localTournaments.find(t => t.id === fsTour.id);
-        if (localTour) {
-          mergedTournaments.push({
-            ...localTour,
-            ...fsTour,
-            registeredTeams: fsTour.registeredTeams?.length > 0 ? fsTour.registeredTeams : (localTour.registeredTeams || []),
-            slots: { ...(localTour.slots || {}), ...(fsTour.slots || {}) },
-            status: fsTour.status || localTour.status,
-            results: {
-              winner: fsTour.results?.winner || localTour.results?.winner || null,
-              runnerUp: fsTour.results?.runnerUp || localTour.results?.runnerUp || null,
-              third: fsTour.results?.third || localTour.results?.third || null
-            }
-          });
-        } else {
-          mergedTournaments.push(fsTour);
-        }
-      });
-
-      localTournaments.forEach(localTour => {
-        if (!firestoreTournaments.some(fsTour => fsTour.id === localTour.id)) {
-          mergedTournaments.push(localTour);
-          console.log(`[PMSL Sync] Preserving local tournament and uploading to Firestore: ${localTour.name} (${localTour.id})`);
-          setDoc(doc(db, 'tournaments', localTour.id), localTour).catch(err => {
-            console.error("Sync error: Failed to upload local tournament:", err);
-          });
-        }
-      });
-
-      this.setCollectionFromFirestore<Tournament>('tournaments', mergedTournaments);
+      this.setCollectionFromFirestore<Tournament>('tournaments', firestoreTournaments);
     }, (error) => {
       console.error("Firestore tournaments listener error:", error);
+      window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'tournaments', error } }));
     });
 
     // 4. Listen to transactions
@@ -287,32 +197,10 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTransactions.push({ id: doc.id, ...doc.data() } as Transaction);
       });
-
-      const localTransactions = this.getCollection<Transaction>('transactions');
-      const mergedTransactions: Transaction[] = [];
-
-      firestoreTransactions.forEach(fsTx => {
-        const localTx = localTransactions.find(t => t.id === fsTx.id);
-        if (localTx) {
-          mergedTransactions.push({ ...localTx, ...fsTx });
-        } else {
-          mergedTransactions.push(fsTx);
-        }
-      });
-
-      localTransactions.forEach(localTx => {
-        if (!firestoreTransactions.some(fsTx => fsTx.id === localTx.id)) {
-          mergedTransactions.push(localTx);
-          console.log(`[PMSL Sync] Preserving local transaction and uploading to Firestore: ${localTx.id}`);
-          setDoc(doc(db, 'transactions', localTx.id), localTx).catch(err => {
-            console.error("Sync error: Failed to upload local transaction:", err);
-          });
-        }
-      });
-
-      this.setCollectionFromFirestore<Transaction>('transactions', mergedTransactions);
+      this.setCollectionFromFirestore<Transaction>('transactions', firestoreTransactions);
     }, (error) => {
       console.error("Firestore transactions listener error:", error);
+      window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'transactions', error } }));
     });
 
     // 5. Listen to system_config
@@ -322,47 +210,19 @@ export class MockDatabase {
         firestoreConfigs.push({ id: doc.id, ...doc.data() } as SystemConfig);
       });
 
-      const localConfigs = this.getCollection<SystemConfig>('system_config');
-      const mergedConfigs: SystemConfig[] = [];
-
-      firestoreConfigs.forEach(fsConfig => {
-        const localConfig = localConfigs.find(c => c.id === fsConfig.id);
-        if (localConfig) {
-          mergedConfigs.push({
-            ...localConfig,
-            ...fsConfig,
-            resultsAdLink: fsConfig.resultsAdLink || localConfig.resultsAdLink || '',
-            slotsAdLink: fsConfig.slotsAdLink || localConfig.slotsAdLink || '',
-            earnAdLink: fsConfig.earnAdLink || localConfig.earnAdLink || '',
-            loginAdLink: fsConfig.loginAdLink || localConfig.loginAdLink || ''
-          });
-        } else {
-          mergedConfigs.push(fsConfig);
-        }
-      });
-
-      localConfigs.forEach(localConfig => {
-        if (!firestoreConfigs.some(fsConfig => fsConfig.id === localConfig.id)) {
-          mergedConfigs.push(localConfig);
-          console.log(`[PMSL Sync] Preserving local system config and uploading to Firestore: ${localConfig.id}`);
-          setDoc(doc(db, 'system_config', localConfig.id), localConfig).catch(err => {
-            console.error("Sync error: Failed to upload local system config:", err);
-          });
-        }
-      });
-
-      if (mergedConfigs.length === 0) {
+      if (firestoreConfigs.length === 0) {
         const defaultConfig = this.getAdsConfig();
-        mergedConfigs.push(defaultConfig);
         console.log(`[PMSL Sync] Uploading default system config to Firestore...`);
         setDoc(doc(db, 'system_config', defaultConfig.id), defaultConfig).catch(err => {
           console.error("Sync error: Failed to upload default system config:", err);
         });
+        this.setCollectionFromFirestore<SystemConfig>('system_config', [defaultConfig]);
+      } else {
+        this.setCollectionFromFirestore<SystemConfig>('system_config', firestoreConfigs);
       }
-
-      this.setCollectionFromFirestore<SystemConfig>('system_config', mergedConfigs);
     }, (error) => {
       console.error("Firestore system_config listener error:", error);
+      window.dispatchEvent(new CustomEvent('pmsl-sync-error', { detail: { collection: 'system_config', error } }));
     });
   }
 
