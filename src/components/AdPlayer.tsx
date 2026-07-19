@@ -6,6 +6,7 @@ interface AdPlayerProps {
   isOpen: boolean;
   onComplete: () => void;
   onCancel: () => void;
+  adUrl?: string;
 }
 
 const FICTIONAL_ADS = [
@@ -44,7 +45,7 @@ const FICTIONAL_ADS = [
   }
 ];
 
-export default function AdPlayer({ isOpen, onComplete, onCancel }: AdPlayerProps) {
+export default function AdPlayer({ isOpen, onComplete, onCancel, adUrl }: AdPlayerProps) {
   const [adIndex, setAdIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(6); // 6-second simulated ad
   const [isMuted, setIsMuted] = useState(false);
@@ -62,8 +63,17 @@ export default function AdPlayer({ isOpen, onComplete, onCancel }: AdPlayerProps
       setIsCompleted(false);
       setShowWarning(false);
       setClicksCount(0);
+
+      // Trigger popunder / new window redirect
+      if (adUrl && adUrl.startsWith('http')) {
+        try {
+          window.open(adUrl, '_blank', 'noopener,noreferrer');
+        } catch (e) {
+          console.warn("Popup block prevented automatic ad redirection. User click required.", e);
+        }
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, adUrl]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -193,18 +203,38 @@ export default function AdPlayer({ isOpen, onComplete, onCancel }: AdPlayerProps
 
             {/* Interactive Simulated Target (Simulates app demo) */}
             <div className="p-1">
-              <button
-                onClick={handleFictionalClick}
-                className={`px-5 py-2.5 rounded-xl font-semibold shadow-lg text-sm transition-all duration-200 transform active:scale-95 ${currentAd.buttonColor} text-white`}
-                id="btn-ad-cta"
-              >
-                {clicksCount === 0 && "Try Instant Demo"}
-                {clicksCount > 0 && clicksCount < 3 && `Testing Demo... Click count: ${clicksCount}/3`}
-                {clicksCount >= 3 && "🚀 Sandbox Loaded Successfully!"}
-              </button>
-              <p className="text-[10px] text-slate-500 mt-2">
-                Clicking sponsor buttons simulates real user engagement metrics.
-              </p>
+              {adUrl && adUrl.startsWith('http') ? (
+                <div className="space-y-3">
+                  <a
+                    href={adUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setClicksCount((prev) => prev + 1)}
+                    className="inline-flex items-center gap-2 bg-[#00ff87] hover:bg-emerald-400 text-slate-950 px-6 py-3 rounded-xl font-bold tracking-wider text-xs uppercase shadow-[0_0_15px_rgba(0,255,135,0.35)] transition-all transform active:scale-95"
+                    id="btn-ad-cta-link"
+                  >
+                    <Play className="w-4 h-4" /> Load Sponsor Ad Link
+                  </a>
+                  <p className="text-[10px] text-[#00ff87]/80">
+                    If pop-up did not open, click above to visit sponsor offer and unlock your reward.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleFictionalClick}
+                    className={`px-5 py-2.5 rounded-xl font-semibold shadow-lg text-sm transition-all duration-200 transform active:scale-95 ${currentAd.buttonColor} text-white`}
+                    id="btn-ad-cta"
+                  >
+                    {clicksCount === 0 && "Try Instant Demo"}
+                    {clicksCount > 0 && clicksCount < 3 && `Testing Demo... Click count: ${clicksCount}/3`}
+                    {clicksCount >= 3 && "🚀 Sandbox Loaded Successfully!"}
+                  </button>
+                  <p className="text-[10px] text-slate-500 mt-2">
+                    Clicking sponsor buttons simulates real user engagement metrics.
+                  </p>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

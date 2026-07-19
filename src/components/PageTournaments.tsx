@@ -14,6 +14,8 @@ interface PageTournamentsProps {
   user: UserProfile | null;
   onTriggerAdGate: (tourId: string, onReward: () => void) => void;
   hasWatchedResultsFor: string[]; // array of tournamentIds
+  hasWatchedSlotsFor: string[];
+  onTriggerSlotAdGate: (tourId: string) => void;
 }
 
 // Fixed Match Schedule simulator for aesthetic realism
@@ -33,7 +35,9 @@ export default function PageTournaments({
   onCloseDetails,
   user,
   onTriggerAdGate,
-  hasWatchedResultsFor
+  hasWatchedResultsFor,
+  hasWatchedSlotsFor,
+  onTriggerSlotAdGate
 }: PageTournamentsProps) {
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'ongoing' | 'completed'>('all');
   const [modalTab, setModalTab] = useState<'briefing' | 'slots' | 'matches'>('briefing');
@@ -331,40 +335,63 @@ export default function PageTournaments({
                     <p className="text-xs text-[#a0b4c8]">Review the official assigned squads for this tournament lobby.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {Array.from({ length: 17 }, (_, i) => i + 4).map((slotNum) => {
-                      const stringSlot = slotNum.toString();
-                      const assignedTeamId = selectedTournament.slots?.[stringSlot] || '';
-                      const team = getTeamObj(assignedTeamId);
+                  {hasWatchedSlotsFor.includes(selectedTournament.id) || (user && (user.role === 'admin' || user.role === 'owner' || user.email === 'anoypak3@gmail.com')) ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {Array.from({ length: 17 }, (_, i) => i + 4).map((slotNum) => {
+                        const stringSlot = slotNum.toString();
+                        const assignedTeamId = selectedTournament.slots?.[stringSlot] || '';
+                        const team = getTeamObj(assignedTeamId);
 
-                      return (
-                        <div key={slotNum} className={`p-3 rounded-xl border transition ${
-                          team
-                            ? 'bg-[#00ff87]/5 border-[#00ff87]/20 hover:border-[#00ff87]/40'
-                            : 'bg-black/25 border-white/5 hover:border-white/10'
-                        }`}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[9px] font-mono font-bold text-slate-500">SLOT {slotNum}</span>
-                            {team && (
-                              <span className="text-[8px] bg-slate-800 text-[#00ff87] px-1 rounded font-mono font-bold uppercase">
-                                {team.tag}
-                              </span>
+                        return (
+                          <div key={slotNum} className={`p-3 rounded-xl border transition ${
+                            team
+                              ? 'bg-[#00ff87]/5 border-[#00ff87]/20 hover:border-[#00ff87]/40'
+                              : 'bg-black/25 border-white/5 hover:border-white/10'
+                          }`}>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[9px] font-mono font-bold text-slate-500">SLOT {slotNum}</span>
+                              {team && (
+                                <span className="text-[8px] bg-slate-800 text-[#00ff87] px-1 rounded font-mono font-bold uppercase">
+                                  {team.tag}
+                                </span>
+                              )}
+                            </div>
+                            {team ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm shrink-0">{team.logo}</span>
+                                <span className="text-[11px] font-bold text-white truncate" title={team.name}>
+                                  {team.name}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-600 italic block py-0.5">Unassigned</span>
                             )}
                           </div>
-                          {team ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm shrink-0">{team.logo}</span>
-                              <span className="text-[11px] font-bold text-white truncate" title={team.name}>
-                                {team.name}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-slate-600 italic block py-0.5">Unassigned</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-black/50 border border-[#00ff87]/15 rounded-xl p-8 text-center space-y-4 relative overflow-hidden">
+                      <div className="space-y-1.5 max-w-sm mx-auto">
+                        <h5 className="font-display font-black text-xs text-white uppercase tracking-wider flex items-center justify-center gap-1.5 text-[#00ff87]">
+                          <ListOrdered className="w-4 h-4 text-[#00ff87]" />
+                          <span>Sponsor-Gated Slots Allocation</span>
+                        </h5>
+                        <p className="text-xs text-[#a0b4c8] leading-relaxed">
+                          To view the official slot boards for this custom tournament lobby, please resolve a quick sponsor transmission.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => onTriggerSlotAdGate(selectedTournament.id)}
+                        className="btn-neon-green flex items-center gap-2 py-2.5 px-6 rounded text-xs font-bold uppercase tracking-wider mx-auto shadow-md"
+                        id="btn-slots-watch-ad"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current text-black" />
+                        <span>Watch Ad to Unlock Slots</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Coins, 
@@ -53,8 +53,14 @@ export default function App() {
   // Active details / ad state
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [isAdOpen, setIsAdOpen] = useState(false);
-  const [adPurpose, setAdPurpose] = useState<{ type: 'rewarded_coins' | 'gate_results'; tourId?: string } | null>(null);
+  const [adPurpose, setAdPurpose] = useState<{ type: 'rewarded_coins' | 'gate_results' | 'slot_view' | 'login_pop'; tourId?: string } | null>(null);
   const [hasWatchedResultsFor, setHasWatchedResultsFor] = useState<string[]>([]);
+  const [hasWatchedSlotsFor, setHasWatchedSlotsFor] = useState<string[]>([]);
+
+  // Onboarding states for Game IGN & Full Name
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardGameName, setOnboardGameName] = useState('');
+  const [onboardFullName, setOnboardFullName] = useState('');
 
   // Custom persistent notifications / toasts
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -135,8 +141,9 @@ export default function App() {
     console.log(`[PMSL LOG] [${uid}]: ${msg}`);
   };
 
-  // Check if active user is admin
-  const isAdmin = user?.email === 'anoypak3@gmail.com';
+  // Check if active user is admin/owner based on their user role
+  const isOwner = user?.email === 'anoypak3@gmail.com' || user?.role === 'owner';
+  const isAdmin = isOwner || user?.role === 'admin';
 
   // Listen for Firebase Auth state changes
   useEffect(() => {
@@ -158,6 +165,7 @@ export default function App() {
             coins: 100, // Claim 100 welcome coins!
             teamId: null,
             level: 'Bronze',
+            role: email === 'anoypak3@gmail.com' ? 'owner' : 'user',
             stats: {
               matches: 0,
               wins: 0,
@@ -170,7 +178,9 @@ export default function App() {
             lastLogin: new Date().toISOString(),
             referralCode: 'REF-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
             referredBy: null,
-            achievements: ['team_player']
+            achievements: ['team_player'],
+            gameName: '',
+            fullName: ''
           };
           MockDatabase.saveUser(existingUser);
 
@@ -188,10 +198,32 @@ export default function App() {
           if (existingUser.email !== email) { existingUser.email = email; changed = true; }
           if (existingUser.photoURL !== photoURL) { existingUser.photoURL = photoURL; changed = true; }
           
+          if (!existingUser.role) {
+            existingUser.role = email === 'anoypak3@gmail.com' ? 'owner' : 'user';
+            changed = true;
+          }
+
+          // Reset daily watch limits if midnight has passed
+          const todayStr = new Date().toDateString();
+          if (existingUser.lastAdWatchDate) {
+            const lastDate = new Date(existingUser.lastAdWatchDate).toDateString();
+            if (lastDate !== todayStr) {
+              existingUser.adsWatchedToday = 0;
+              changed = true;
+            }
+          }
+          
           if (changed) {
             existingUser.lastLogin = new Date().toISOString();
             MockDatabase.saveUser(existingUser);
           }
+        }
+
+        // Check if onboarding needs to be shown
+        if (!existingUser.gameName || !existingUser.fullName) {
+          setOnboardGameName(existingUser.gameName || '');
+          setOnboardFullName(existingUser.fullName || '');
+          setShowOnboarding(true);
         }
 
         localStorage.setItem('pmsl_active_uid', existingUser.uid);
@@ -200,6 +232,7 @@ export default function App() {
       } else {
         localStorage.removeItem('pmsl_active_uid');
         setUser(null);
+        setShowOnboarding(false);
       }
     });
 
@@ -249,23 +282,50 @@ export default function App() {
     
     // update user coins
     const updated = { ...user };
-    updated.coins += 10;
+    updated.coins += 25;
     MockDatabase.saveUser(updated);
 
     createSimulatedTransaction(
       user.uid,
-      10,
+      25,
       'earned',
       'daily_bonus',
       'Daily Login Claim'
     );
     
-    showToast('Daily subsidy +10 coins claimed!', 'success');
+    showToast('Daily subsidy +25 coins claimed!', 'success');
   };
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     showToast('Code copied to clipboard: ' + code, 'success');
+  };
+
+  // --- Onboarding Action ---
+  const handleSaveOnboarding = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!onboardGameName.trim() || !onboardFullName.trim()) {
+      showToast('Please enter both your Full Name and PUBG Game Name.', 'error');
+      return;
+    }
+
+    const updated = { ...user };
+    updated.gameName = onboardGameName.trim();
+    updated.fullName = onboardFullName.trim();
+    MockDatabase.saveUser(updated);
+    setUser(updated);
+    setShowOnboarding(false);
+    showToast('Onboarding completed! Welcome to the Arena.', 'success');
+
+    // Trigger Successful Login Ad POP!
+    const config = MockDatabase.getAdsConfig();
+    if (config.loginAdLink && config.loginAdLink.startsWith('http')) {
+      setTimeout(() => {
+        setAdPurpose({ type: 'login_pop' });
+        setIsAdOpen(true);
+      }, 500);
+    }
   };
 
   // --- Ad Watch Integration ---
@@ -274,7 +334,7 @@ export default function App() {
       showToast('Please login to watch sponsor broadcasts.', 'error');
       return;
     }
-    if (user.adsWatchedToday >= 5) {
+    if (user.adsWatchedToday >= 6) {
       showToast('Daily ad limit reached! Come back tomorrow.', 'error');
       return;
     }
@@ -288,13 +348,18 @@ export default function App() {
     setIsAdOpen(true);
   };
 
+  const triggerSlotAdGateWatch = (tourId: string) => {
+    setAdPurpose({ type: 'slot_view', tourId });
+    setIsAdOpen(true);
+  };
+
   const handleAdPlayerComplete = () => {
     setIsAdOpen(false);
 
     if (adPurpose?.type === 'rewarded_coins') {
       if (user) {
         const updated = { ...user };
-        updated.coins += 15;
+        updated.coins += 50;
         updated.adsWatchedToday += 1;
         updated.lastAdWatchDate = new Date().toISOString();
         
@@ -302,20 +367,20 @@ export default function App() {
         const txs = MockDatabase.getCollection<Transaction>('transactions');
         const totalEarned = txs
           .filter(t => t.userId === user.uid && t.type === 'earned')
-          .reduce((sum, t) => sum + t.amount, 0) + 115; // include current
+          .reduce((sum, t) => sum + t.amount, 0) + 150; // include current
         
         updated.level = MockDatabase.getLevel(totalEarned);
         MockDatabase.saveUser(updated);
 
         createSimulatedTransaction(
           user.uid,
-          15,
+          50,
           'earned',
           'ad_watch',
           'Sponsor Transmission Ad Reward'
         );
 
-        showToast('+15 coins added! 🪙', 'success');
+        showToast('+50 coins added! 🪙', 'success');
       }
     } else if (adPurpose?.type === 'gate_results' && adPurpose.tourId) {
       const tourId = adPurpose.tourId;
@@ -346,6 +411,12 @@ export default function App() {
           }
         }
       }
+    } else if (adPurpose?.type === 'slot_view' && adPurpose.tourId) {
+      const tourId = adPurpose.tourId;
+      setHasWatchedSlotsFor(prev => [...prev, tourId]);
+      showToast('Transmission complete. Slot boards unlocked!', 'success');
+    } else if (adPurpose?.type === 'login_pop') {
+      showToast('Welcome Back Sponsor Redirect Loaded Successfully!', 'success');
     }
 
     setAdPurpose(null);
@@ -588,6 +659,8 @@ export default function App() {
                 user={user}
                 onTriggerAdGate={triggerAdGateWatch}
                 hasWatchedResultsFor={hasWatchedResultsFor}
+                hasWatchedSlotsFor={hasWatchedSlotsFor}
+                onTriggerSlotAdGate={triggerSlotAdGateWatch}
               />
             )}
 
@@ -619,13 +692,14 @@ export default function App() {
               />
             )}
 
-            {activePage === 'admin' && isAdmin && (
+            {activePage === 'admin' && isAdmin && user && (
               <PageAdmin 
                 tournaments={tournaments}
                 teams={teams}
                 allUsers={allUsers}
                 onCreateTournament={handleAdminCreateTournament}
                 onUpdateTournamentStatus={handleAdminUpdateStatus}
+                currentUser={user}
               />
             )}
           </motion.div>
@@ -640,6 +714,15 @@ export default function App() {
         isOpen={isAdOpen}
         onComplete={handleAdPlayerComplete}
         onCancel={handleAdPlayerCancel}
+        adUrl={(() => {
+          if (!adPurpose) return undefined;
+          const config = MockDatabase.getAdsConfig();
+          if (adPurpose.type === 'rewarded_coins') return config.earnAdLink;
+          if (adPurpose.type === 'gate_results') return config.resultsAdLink;
+          if (adPurpose.type === 'slot_view') return config.slotsAdLink;
+          if (adPurpose.type === 'login_pop') return config.loginAdLink;
+          return undefined;
+        })()}
       />
 
       {/* Real Live Google login modal popup overlay */}
@@ -662,7 +745,6 @@ export default function App() {
               >
                 <X className="w-4 h-4" />
               </button>
-+
               <div className="space-y-2">
                 <div className="w-12 h-12 bg-[#00ff87]/15 border border-[#00ff87]/30 text-[#00ff87] rounded-xl flex items-center justify-center mx-auto shadow-md">
                   <LogIn className="w-6 h-6" />
@@ -720,6 +802,72 @@ export default function App() {
               <p className="text-[9px] text-slate-500 leading-snug">
                 This app uses Google's live single-sign-on protocol. First-time login automatically syncs your profile.
               </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Onboarding Dialog Overlay */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="glass-panel border-[#00ff87]/30 max-w-md w-full p-6 md:p-8 space-y-6 text-center shadow-[0_0_50px_rgba(0,255,135,0.15)] rounded-3xl"
+            >
+              <div className="w-16 h-16 bg-[#00ff87]/15 rounded-2xl flex items-center justify-center mx-auto border border-[#00ff87]/30 text-3xl animate-bounce">
+                🎮
+              </div>
+
+              <div className="space-y-1.5">
+                <h2 className="font-display font-black text-lg md:text-xl text-white uppercase tracking-wider">
+                  Complete Player Profile
+                </h2>
+                <p className="text-xs text-[#a0b4c8] leading-relaxed">
+                  Welcome to PUBG Mobile Esports Arena! To participate in custom lobby Tournaments and claim your coin winnings, please set up your gaming credentials.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveOnboarding} className="space-y-4 text-left">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block">
+                    Full Name (Real Identity)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardFullName}
+                    onChange={(e) => setOnboardFullName(e.target.value)}
+                    placeholder="Enter your real name..."
+                    className="w-full bg-black/50 border border-white/10 focus:border-[#00ff87] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none transition-all font-sans"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold block">
+                    PUBG Game Name (Character IGN)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={onboardGameName}
+                    onChange={(e) => setOnboardGameName(e.target.value)}
+                    placeholder="e.g. ANOY・GAMING"
+                    className="w-full bg-black/50 border border-white/10 focus:border-[#00ff87] rounded-xl px-4 py-2.5 text-xs text-[#00ff87] focus:outline-none transition-all font-mono font-bold"
+                  />
+                  <p className="text-[9px] text-slate-500 leading-normal">
+                    Must exactly match your in-game nickname so admins can verify match lobbies.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#00ff87] text-slate-950 font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-[0_0_20px_rgba(0,255,135,0.25)] hover:scale-[1.02] transition transform active:scale-95 text-center block mt-6 cursor-pointer"
+                >
+                  Save and Enter Arena 🚀
+                </button>
+              </form>
             </motion.div>
           </div>
         )}

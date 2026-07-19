@@ -12,18 +12,62 @@ interface PageAdminProps {
   allUsers: UserProfile[];
   onCreateTournament: (tour: Tournament) => void;
   onUpdateTournamentStatus: (tourId: string, status: 'upcoming' | 'ongoing' | 'completed', results?: any) => void;
+  currentUser: UserProfile;
 }
 
-type AdminTab = 'leagues' | 'teams' | 'slots' | 'results';
+type AdminTab = 'leagues' | 'teams' | 'slots' | 'results' | 'monetization';
 
 export default function PageAdmin({
   tournaments,
   teams,
   allUsers,
   onCreateTournament,
-  onUpdateTournamentStatus
+  onUpdateTournamentStatus,
+  currentUser
 }: PageAdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('leagues');
+
+  // --- ADSTERRA MONETIZATION STATE ---
+  const [resultsAdLink, setResultsAdLink] = useState('');
+  const [slotsAdLink, setSlotsAdLink] = useState('');
+  const [earnAdLink, setEarnAdLink] = useState('');
+  const [loginAdLink, setLoginAdLink] = useState('');
+  const [adsSuccess, setAdsSuccess] = useState('');
+
+  React.useEffect(() => {
+    const config = MockDatabase.getAdsConfig();
+    setResultsAdLink(config.resultsAdLink);
+    setSlotsAdLink(config.slotsAdLink);
+    setEarnAdLink(config.earnAdLink);
+    setLoginAdLink(config.loginAdLink);
+  }, []);
+
+  const handleSaveAds = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdsSuccess('');
+    MockDatabase.saveAdsConfig({
+      id: 'ads_config',
+      resultsAdLink: resultsAdLink.trim(),
+      slotsAdLink: slotsAdLink.trim(),
+      earnAdLink: earnAdLink.trim(),
+      loginAdLink: loginAdLink.trim(),
+    });
+    setAdsSuccess('Adsterra links successfully updated!');
+    setTimeout(() => setAdsSuccess(''), 4000);
+  };
+
+  const handleToggleAdminRole = (uid: string) => {
+    const isOwner = currentUser?.email === 'anoypak3@gmail.com' || currentUser?.role === 'owner';
+    if (!isOwner) return;
+
+    const userProfile = allUsers.find(u => u.uid === uid);
+    if (userProfile) {
+      if (userProfile.email === 'anoypak3@gmail.com') return; // Cannot demote Owner
+      const updated = { ...userProfile };
+      updated.role = updated.role === 'admin' ? 'user' : 'admin';
+      MockDatabase.saveUser(updated);
+    }
+  };
 
   // --- LEAGUES TAB STATE ---
   const [name, setName] = useState('');
@@ -336,7 +380,10 @@ export default function PageAdmin({
 
         {/* Tab switchers */}
         <div className="flex flex-wrap gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5">
-          {(['leagues', 'teams', 'slots', 'results'] as const).map((tab) => (
+          {((currentUser?.email === 'anoypak3@gmail.com' || currentUser?.role === 'owner')
+            ? ['leagues', 'teams', 'slots', 'results', 'monetization'] as const
+            : ['leagues', 'teams', 'slots', 'results'] as const
+          ).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -350,6 +397,7 @@ export default function PageAdmin({
               {tab === 'teams' && 'Teams & Users'}
               {tab === 'slots' && 'Slot Boards'}
               {tab === 'results' && 'Match Standings'}
+              {tab === 'monetization' && 'Adsterra Monetization'}
             </button>
           ))}
         </div>
@@ -651,11 +699,15 @@ export default function PageAdmin({
               <table className="w-full text-left text-xs divide-y divide-white/5">
                 <thead>
                   <tr className="text-slate-400 uppercase tracking-widest text-[9px] font-bold">
-                    <th className="py-3 px-2">Player name</th>
+                    <th className="py-3 px-2">Player name / IGN</th>
                     <th className="py-3 px-2">Email</th>
                     <th className="py-3 px-2">Squad status</th>
                     <th className="py-3 px-2 font-mono">Coins (Wallet)</th>
                     <th className="py-3 px-2">Badge level</th>
+                    <th className="py-3 px-2">Role</th>
+                    {currentUser?.email === 'anoypak3@gmail.com' && (
+                      <th className="py-3 px-2 text-center">Manage Admin</th>
+                    )}
                     <th className="py-3 px-2 text-right">Balance adjustment</th>
                   </tr>
                 </thead>
@@ -663,8 +715,12 @@ export default function PageAdmin({
                   {filteredUsers.map((p) => (
                     <tr key={p.uid} className="hover:bg-white/[0.02]">
                       <td className="py-3 px-2 flex items-center gap-2">
-                        <img src={p.photoURL} className="w-6 h-6 rounded-full border border-white/15" referrerPolicy="no-referrer" />
-                        <span className="font-bold text-white">{p.name}</span>
+                        <img src={p.photoURL} className="w-8 h-8 rounded-full border border-white/15" referrerPolicy="no-referrer" />
+                        <div className="flex flex-col">
+                          <span className="font-bold text-white">{p.name}</span>
+                          <span className="text-[10px] text-slate-400">Name: {p.fullName || 'Not Set'}</span>
+                          <span className="text-[10px] text-[#00ff87] font-mono">IGN: {p.gameName || 'Not Set'}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-2 text-slate-400 font-mono">{p.email}</td>
                       <td className="py-3 px-2">
@@ -682,6 +738,35 @@ export default function PageAdmin({
                           {p.level}
                         </span>
                       </td>
+                      <td className="py-3 px-2">
+                        <span className={`text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded ${
+                          p.role === 'owner' || p.email === 'anoypak3@gmail.com'
+                            ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                            : p.role === 'admin'
+                            ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+                            : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                        }`}>
+                          {p.role === 'owner' || p.email === 'anoypak3@gmail.com' ? 'Owner' : p.role === 'admin' ? 'Admin' : 'Player'}
+                        </span>
+                      </td>
+                      {currentUser?.email === 'anoypak3@gmail.com' && (
+                        <td className="py-3 px-2 text-center">
+                          {p.email !== 'anoypak3@gmail.com' && p.role !== 'owner' ? (
+                            <button
+                              onClick={() => handleToggleAdminRole(p.uid)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                                p.role === 'admin'
+                                  ? 'bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 border border-rose-900/30'
+                                  : 'bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-900/30'
+                              }`}
+                            >
+                              {p.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                            </button>
+                          ) : (
+                            <span className="text-slate-500 italic text-[10px]">Superuser</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-3 px-2 text-right">
                         {adjustingUserUid === p.uid ? (
                           <div className="flex items-center justify-end gap-1.5">
@@ -1088,6 +1173,112 @@ export default function PageAdmin({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 5: ADSTERRA MONETIZATION CONFIG */}
+      {/* ========================================================= */}
+      {activeTab === 'monetization' && (
+        <div className="glass-panel border-white/5 p-6 space-y-6 animate-fade-in">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+            <Settings className="w-5 h-5 text-rose-400" />
+            <h3 className="font-display font-bold text-xs uppercase tracking-widest text-white">
+              Adsterra Monetization Links
+            </h3>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
+            As the Owner, you can specify your Adsterra direct links or banner URLs below. 
+            When players view the tournament results, register for slots, or earn coins, 
+            the application will route through these links so you earn revenue from traffic.
+          </p>
+
+          {adsSuccess && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-400 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4" />
+              <span>{adsSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveAds} className="space-y-6 max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-mono tracking-wider text-slate-300 block">
+                  Earn Coins (Watch Ads Link)
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={earnAdLink}
+                  onChange={(e) => setEarnAdLink(e.target.value)}
+                  placeholder="https://www.highperformancecpmgate.com/..."
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Direct ad redirect triggered when players watch an ad to earn +50 coins.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-mono tracking-wider text-slate-300 block">
+                  Viewing Results (Ad Gate Link)
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={resultsAdLink}
+                  onChange={(e) => setResultsAdLink(e.target.value)}
+                  placeholder="https://www.highperformancecpmgate.com/..."
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Ad link opened in a new tab when a player clicks "Unlock Lobbies / Results".
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-mono tracking-wider text-slate-300 block">
+                  Viewing Slot List (Slot Ad Link)
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={slotsAdLink}
+                  onChange={(e) => setSlotsAdLink(e.target.value)}
+                  placeholder="https://www.highperformancecpmgate.com/..."
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Ad link opened in a new tab when players view tournament slot lists.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-mono tracking-wider text-slate-300 block">
+                  Successful Login Ad Link
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={loginAdLink}
+                  onChange={(e) => setLoginAdLink(e.target.value)}
+                  placeholder="https://www.highperformancecpmgate.com/..."
+                  className="w-full bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Adsterra popunder/link opened automatically right after player logins.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-widest px-6 py-3 rounded-xl transition shadow-[0_0_15px_rgba(225,29,72,0.2)]"
+            >
+              Update Adsterra Links
+            </button>
+          </form>
         </div>
       )}
     </div>

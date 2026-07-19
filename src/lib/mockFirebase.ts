@@ -29,6 +29,18 @@ export interface UserProfile {
   referralCode: string;
   referredBy: string | null;
   achievements: string[];
+  role?: 'user' | 'admin' | 'owner';
+  gameName?: string;
+  fullName?: string;
+  dailyCheckInDate?: string | null;
+}
+
+export interface SystemConfig {
+  id: string; // 'ads_config'
+  resultsAdLink: string;
+  slotsAdLink: string;
+  earnAdLink: string;
+  loginAdLink: string;
 }
 
 export interface Team {
@@ -184,6 +196,45 @@ export class MockDatabase {
       this.setCollectionFromFirestore<Transaction>('transactions', transactions);
     }, (error) => {
       console.error("Firestore transactions listener error:", error);
+    });
+
+    // 5. Listen to system_config
+    onSnapshot(collection(db, 'system_config'), (snapshot) => {
+      const configs: SystemConfig[] = [];
+      snapshot.forEach((doc) => {
+        configs.push({ id: doc.id, ...doc.data() } as SystemConfig);
+      });
+      this.setCollectionFromFirestore<SystemConfig>('system_config', configs);
+    }, (error) => {
+      console.error("Firestore system_config listener error:", error);
+    });
+  }
+
+  // --- System Config / Ad Links ---
+  static getAdsConfig(): SystemConfig {
+    const configs = this.getCollection<SystemConfig>('system_config');
+    const existing = configs.find(c => c.id === 'ads_config');
+    if (existing) return existing;
+    return {
+      id: 'ads_config',
+      resultsAdLink: 'https://www.highperformancecpmgate.com/results-ad',
+      slotsAdLink: 'https://www.highperformancecpmgate.com/slots-ad',
+      earnAdLink: 'https://www.highperformancecpmgate.com/earn-ad',
+      loginAdLink: 'https://www.highperformancecpmgate.com/login-ad'
+    };
+  }
+
+  static saveAdsConfig(config: SystemConfig): void {
+    const configs = this.getCollection<SystemConfig>('system_config');
+    const index = configs.findIndex(c => c.id === config.id);
+    if (index >= 0) {
+      configs[index] = config;
+    } else {
+      configs.push(config);
+    }
+    this.setCollectionFromFirestore<SystemConfig>('system_config', configs);
+    setDoc(doc(db, 'system_config', config.id), config).catch(err => {
+      console.error("Firestore saveAdsConfig failed:", err);
     });
   }
 
@@ -376,6 +427,36 @@ export class MockDatabase {
     if (!tour) return 'Tournament not found.';
     if (tour.registeredTeams.includes(teamId)) return "You're already registered for this tournament.";
     if (tour.registeredTeams.length >= tour.maxTeams) return 'Tournament registration closed.';
+
+    const teams = this.getCollection<Team>('teams');
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return 'Team not found.';
+
+    // Check coins of ALL members
+    const users = this.getCollection<UserProfile>('users');
+    const members = users.filter(u => team.members.includes(u.uid));
+
+    // Check if any member has less coins than entryFee
+    const brokeMembers = members.filter(m => m.coins < tour.entryFee);
+    if (brokeMembers.length > 0) {
+      const brokeNames = brokeMembers.map(m => m.gameName || m.name).join(', ');
+      return `Registration failed. The following players do not have enough coins (${tour.entryFee} required): ${brokeNames}. All team players must accumulate enough coins!`;
+    }
+
+    // Deduct coins from ALL members and save them
+    members.forEach(m => {
+      m.coins -= tour.entryFee;
+      this.saveUser(m); // This saves and syncs to Firestore!
+
+      // Add a spent transaction
+      this.addTransaction({
+        userId: m.uid,
+        amount: tour.entryFee,
+        type: 'spent',
+        source: 'tournament_entry',
+        description: `Paid ${tour.entryFee} coins entry fee for tournament: ${tour.name}`
+      });
+    });
 
     tour.registeredTeams.push(teamId);
 
