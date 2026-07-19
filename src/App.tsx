@@ -49,6 +49,7 @@ export default function App() {
   // Authentication Dialog overlay
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginTrouble, setLoginTrouble] = useState(false);
+  const [dismissIframeWarning, setDismissIframeWarning] = useState(false);
 
   // Active details / ad state
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
@@ -762,27 +763,55 @@ export default function App() {
               </div>
 
               {/* Troubleshooting warning box for Iframes / Popup Blockers */}
-              {(window.self !== window.top || loginTrouble) && (
-                <div className="text-left bg-slate-950/80 border border-yellow-500/30 rounded-xl p-4 font-mono text-[10px] leading-relaxed space-y-2">
-                  <div className="flex items-start gap-1.5 text-yellow-500 font-bold uppercase tracking-wider">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Iframe / Popup Restriction Detected</span>
-                  </div>
-                  <p className="text-slate-400 font-sans text-[10.5px]">
-                    You are running inside a preview iframe. Browser policies block Google sign-in popups here.
-                  </p>
-                  <p className="text-slate-400 font-sans text-[10.5px]">
-                    Please click below to open the app in a standalone tab and sign in smoothly, or manually enable popups.
-                  </p>
-                  <div className="pt-1">
-                    <button
-                      onClick={() => window.open(window.location.href, '_blank')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#00ff87]/15 hover:bg-[#00ff87]/25 border border-[#00ff87]/30 text-[#00ff87] rounded text-[11px] font-black uppercase transition font-sans cursor-pointer w-full justify-center"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Open App in New Tab</span>
-                    </button>
-                  </div>
+              {((window.self !== window.top) || loginTrouble) && !dismissIframeWarning && (
+                <div className="text-left bg-slate-950/80 border border-yellow-500/30 rounded-xl p-4 font-mono text-[10px] leading-relaxed space-y-2 relative">
+                  {window.self !== window.top ? (
+                    <>
+                      <div className="flex items-center justify-between text-yellow-500 font-bold uppercase tracking-wider pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Iframe Preview Detected</span>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 font-sans text-[10.5px]">
+                        You are running inside an embedded preview iframe. Browser security policies block authentication popups here.
+                      </p>
+                      <p className="text-slate-400 font-sans text-[10.5px]">
+                        Please click below to open the app in a standalone tab and sign in smoothly.
+                      </p>
+                      <div className="pt-1">
+                        <button
+                          onClick={() => window.open(window.location.href, '_blank')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#00ff87]/15 hover:bg-[#00ff87]/25 border border-[#00ff87]/30 text-[#00ff87] rounded text-[11px] font-black uppercase transition font-sans cursor-pointer w-full justify-center"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Open App in New Tab</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-amber-500 font-bold uppercase tracking-wider pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Popup Blocker Enabled</span>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 font-sans text-[10.5px]">
+                        Your browser blocked the Google authentication popup. 
+                      </p>
+                      <p className="text-slate-400 font-sans text-[10.5px]">
+                        Please click the lock/pop-up icon in your browser's address bar to <strong>"Allow popups"</strong> for this site, then try clicking "Continue with Google" again.
+                      </p>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setDismissIframeWarning(true)}
+                    className="absolute top-3.5 right-3.5 p-0.5 hover:bg-white/10 rounded-full transition text-slate-400 hover:text-white"
+                    title="Dismiss alert"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 

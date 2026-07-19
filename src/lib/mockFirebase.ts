@@ -157,6 +157,19 @@ export class MockDatabase {
   static initialize() {
     // 1. Listen to users
     onSnapshot(collection(db, 'users'), (snapshot) => {
+      if (snapshot.empty) {
+        // Self-healing: If Firestore is empty but we have local users, upload them to Firestore!
+        const localUsers = this.getCollection<UserProfile>('users');
+        if (localUsers.length > 0) {
+          console.log(`[PMSL Self-Healing] Firestore 'users' is empty. Uploading ${localUsers.length} local users...`);
+          localUsers.forEach(user => {
+            setDoc(doc(db, 'users', user.uid), user).catch(err => {
+              console.error("Self-healing: Error uploading user to Firestore:", err);
+            });
+          });
+          return;
+        }
+      }
       const users: UserProfile[] = [];
       snapshot.forEach((doc) => {
         users.push({ uid: doc.id, ...doc.data() } as UserProfile);
@@ -168,6 +181,19 @@ export class MockDatabase {
 
     // 2. Listen to teams
     onSnapshot(collection(db, 'teams'), (snapshot) => {
+      if (snapshot.empty) {
+        // Self-healing: If Firestore is empty but we have local teams, upload them to Firestore!
+        const localTeams = this.getCollection<Team>('teams');
+        if (localTeams.length > 0) {
+          console.log(`[PMSL Self-Healing] Firestore 'teams' is empty. Uploading ${localTeams.length} local teams...`);
+          localTeams.forEach(team => {
+            setDoc(doc(db, 'teams', team.id), team).catch(err => {
+              console.error("Self-healing: Error uploading team to Firestore:", err);
+            });
+          });
+          return;
+        }
+      }
       const teams: Team[] = [];
       snapshot.forEach((doc) => {
         teams.push({ id: doc.id, ...doc.data() } as Team);
@@ -179,6 +205,19 @@ export class MockDatabase {
 
     // 3. Listen to tournaments
     onSnapshot(collection(db, 'tournaments'), (snapshot) => {
+      if (snapshot.empty) {
+        // Self-healing: If Firestore is empty but we have local tournaments, upload them to Firestore!
+        const localTournaments = this.getCollection<Tournament>('tournaments');
+        if (localTournaments.length > 0) {
+          console.log(`[PMSL Self-Healing] Firestore 'tournaments' is empty. Uploading ${localTournaments.length} local tournaments...`);
+          localTournaments.forEach(tour => {
+            setDoc(doc(db, 'tournaments', tour.id), tour).catch(err => {
+              console.error("Self-healing: Error uploading tournament to Firestore:", err);
+            });
+          });
+          return;
+        }
+      }
       const tournaments: Tournament[] = [];
       snapshot.forEach((doc) => {
         tournaments.push({ id: doc.id, ...doc.data() } as Tournament);
@@ -190,6 +229,19 @@ export class MockDatabase {
 
     // 4. Listen to transactions
     onSnapshot(collection(db, 'transactions'), (snapshot) => {
+      if (snapshot.empty) {
+        // Self-healing: If Firestore is empty but we have local transactions, upload them to Firestore!
+        const localTransactions = this.getCollection<Transaction>('transactions');
+        if (localTransactions.length > 0) {
+          console.log(`[PMSL Self-Healing] Firestore 'transactions' is empty. Uploading ${localTransactions.length} local transactions...`);
+          localTransactions.forEach(tx => {
+            setDoc(doc(db, 'transactions', tx.id), tx).catch(err => {
+              console.error("Self-healing: Error uploading transaction to Firestore:", err);
+            });
+          });
+          return;
+        }
+      }
       const transactions: Transaction[] = [];
       snapshot.forEach((doc) => {
         transactions.push({ id: doc.id, ...doc.data() } as Transaction);
@@ -201,6 +253,27 @@ export class MockDatabase {
 
     // 5. Listen to system_config
     onSnapshot(collection(db, 'system_config'), (snapshot) => {
+      if (snapshot.empty) {
+        // Self-healing: If Firestore is empty but we have local system_config, upload them to Firestore!
+        const localConfigs = this.getCollection<SystemConfig>('system_config');
+        if (localConfigs.length > 0) {
+          console.log(`[PMSL Self-Healing] Firestore 'system_config' is empty. Uploading ${localConfigs.length} local configs...`);
+          localConfigs.forEach(config => {
+            setDoc(doc(db, 'system_config', config.id), config).catch(err => {
+              console.error("Self-healing: Error uploading config to Firestore:", err);
+            });
+          });
+          return;
+        } else {
+          // Sync default configuration to Firestore so it is saved online
+          const defaultConfig = this.getAdsConfig();
+          console.log(`[PMSL Self-Healing] Firestore 'system_config' is empty. Pre-seeding default configuration...`);
+          setDoc(doc(db, 'system_config', defaultConfig.id), defaultConfig).catch(err => {
+            console.error("Self-healing: Error uploading default config to Firestore:", err);
+          });
+          return;
+        }
+      }
       const configs: SystemConfig[] = [];
       snapshot.forEach((doc) => {
         configs.push({ id: doc.id, ...doc.data() } as SystemConfig);
