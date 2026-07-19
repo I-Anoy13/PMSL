@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
 // Detect if we should use the custom PMSL project or the platform-provided workspace project.
@@ -53,4 +53,6 @@ const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
     : (firebaseAppletConfig.firestoreDatabaseId || 'default')
 );
 
-export const db = getFirestore(app, databaseId);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, databaseId);

@@ -147,14 +147,18 @@ export default function App() {
 
   // Listen for Firebase Auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const uid = firebaseUser.uid;
         const email = firebaseUser.email || '';
         const name = firebaseUser.displayName || 'PUBG Player';
         const photoURL = firebaseUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop&q=80';
 
-        let existingUser = MockDatabase.getUser(uid);
+        // Try getting user profile directly from Firestore first, falling back to local cache
+        let existingUser = await MockDatabase.getUserFromFirestore(uid);
+        if (!existingUser) {
+          existingUser = MockDatabase.getUser(uid);
+        }
         
         if (!existingUser) {
           existingUser = {

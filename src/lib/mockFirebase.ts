@@ -4,6 +4,7 @@ import {
   collection, 
   doc, 
   setDoc, 
+  getDoc,
   deleteDoc, 
   onSnapshot 
 } from 'firebase/firestore';
@@ -242,6 +243,18 @@ export class MockDatabase {
   static getUser(uid: string): UserProfile | null {
     const users = this.getCollection<UserProfile>('users');
     return users.find(u => u.uid === uid) || null;
+  }
+
+  static async getUserFromFirestore(uid: string): Promise<UserProfile | null> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        return { uid, ...userDoc.data() } as UserProfile;
+      }
+    } catch (err) {
+      console.error("Error fetching user from Firestore:", err);
+    }
+    return null;
   }
 
   static saveUser(user: UserProfile): void {
