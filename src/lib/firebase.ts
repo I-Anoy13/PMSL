@@ -1,10 +1,21 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
+import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-// We ALWAYS use the user's custom PMSL project as requested.
-// This ensures that live checks and deployment always connect to your real PMSL Firebase project.
-const firebaseConfig = {
+// Detect if we should use the custom PMSL project or the platform-provided workspace project.
+// We use the PMSL project if we are on the custom domain, or if VITE_FIREBASE_PROJECT_ID is set to 'pmslleagu',
+// or if the default system config isn't available.
+const isPMSL = 
+  (import.meta as any).env.VITE_FIREBASE_PROJECT_ID === 'pmslleagu' ||
+  (typeof window !== 'undefined' && (
+    window.location.hostname === 'pmslleagu.firebaseapp.com' || 
+    window.location.hostname === 'pmslleagu.web.app' ||
+    window.location.hostname === 'pmslleagu.com'
+  )) ||
+  !firebaseAppletConfig.projectId;
+
+const firebaseConfig = isPMSL ? {
   apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || "AIzaSyBl6JCCxMXuJU8xFQGrWYRzQvI-3bBFXjA",
   authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || "pmslleagu.firebaseapp.com",
   projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || "pmslleagu",
@@ -12,6 +23,14 @@ const firebaseConfig = {
   messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || "83604420517",
   appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || "1:83604420517:web:72cde07bf6dfdd83f3da4c",
   measurementId: (import.meta as any).env.VITE_FIREBASE_MEASUREMENT_ID || "G-LWSJ75HM50"
+} : {
+  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || firebaseAppletConfig.apiKey,
+  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || firebaseAppletConfig.authDomain,
+  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || firebaseAppletConfig.projectId,
+  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET || firebaseAppletConfig.storageBucket,
+  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseAppletConfig.messagingSenderId,
+  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || firebaseAppletConfig.appId,
+  measurementId: (import.meta as any).env.VITE_FIREBASE_MEASUREMENT_ID || firebaseAppletConfig.measurementId || ""
 };
 
 // Initialize Firebase
@@ -26,10 +45,21 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-// Since you are using your real 'pmslleagu' Firebase project, we default to the standard
-// default database (which corresponds to database ID '(default)', initialized by passing undefined).
-// This means you do not need to provide or configure a custom database ID at all!
-const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || undefined;
+// Determine Firestore Database ID
+// For development/preview envs, we use the custom workspace database ID.
+// For live production environments (custom domains or standard Firebase hosting),
+// we default to the standard default database ('undefined') so the user doesn't need to specify one.
+const isPreviewEnv = typeof window !== 'undefined' && (
+  window.location.hostname.includes('run.app') ||
+  window.location.hostname.includes('localhost') ||
+  window.location.hostname.includes('127.0.0.1')
+);
+
+const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
+  isPMSL
+    ? undefined
+    : (isPreviewEnv ? (firebaseAppletConfig.firestoreDatabaseId || undefined) : undefined)
+);
 
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
