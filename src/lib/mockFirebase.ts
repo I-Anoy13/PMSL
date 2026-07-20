@@ -108,6 +108,20 @@ export class MockDatabase {
 
   // Purely updates the local storage cache without writing back to Firestore (called from snapshot listeners)
   static setCollectionFromFirestore<T>(key: string, items: T[]): void {
+    if (key === 'users') {
+      const activeUid = localStorage.getItem('pmsl_active_uid');
+      if (activeUid) {
+        const hasActive = (items as any[]).some(u => u.uid === activeUid);
+        if (!hasActive) {
+          const cachedActive = localStorage.getItem(`pmsl_user_profile_${activeUid}`);
+          if (cachedActive) {
+            try {
+              items.push(JSON.parse(cachedActive));
+            } catch (e) {}
+          }
+        }
+      }
+    }
     localStorage.setItem(`pmsl_col_${key}`, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent('pmsl-db-update', { detail: { key } }));
   }
@@ -161,6 +175,18 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreUsers.push({ uid: doc.id, ...doc.data() } as UserProfile);
       });
+      
+      if (firestoreUsers.length === 0) {
+        const activeUid = localStorage.getItem('pmsl_active_uid');
+        if (activeUid) {
+          const cachedActive = localStorage.getItem(`pmsl_user_profile_${activeUid}`);
+          if (cachedActive) {
+            try {
+              firestoreUsers.push(JSON.parse(cachedActive));
+            } catch (e) {}
+          }
+        }
+      }
       this.setCollectionFromFirestore<UserProfile>('users', firestoreUsers);
     }, (error) => {
       console.error("Firestore users listener error:", error);
@@ -173,6 +199,26 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTeams.push({ id: doc.id, ...doc.data() } as Team);
       });
+
+      if (firestoreTeams.length === 0) {
+        const cached = localStorage.getItem('pmsl_col_teams');
+        let localTeams: Team[] = [];
+        if (cached) {
+          try {
+            localTeams = JSON.parse(cached);
+          } catch (e) {}
+        }
+        if (localTeams.length > 0) {
+          console.log(`[PMSL Sync] Restoring local teams to empty Firestore...`);
+          localTeams.forEach(t => {
+            setDoc(doc(db, 'teams', t.id), t).catch(err => {
+              console.error("Failed to restore team:", err);
+            });
+          });
+          this.setCollectionFromFirestore<Team>('teams', localTeams);
+          return;
+        }
+      }
       this.setCollectionFromFirestore<Team>('teams', firestoreTeams);
     }, (error) => {
       console.error("Firestore teams listener error:", error);
@@ -187,29 +233,48 @@ export class MockDatabase {
       });
 
       if (firestoreTournaments.length === 0) {
-        const defaultTournament: Tournament = {
-          id: 'tour-pmsl-arena-season-1',
-          name: 'PMSL Arena Season 1 Grand League',
-          description: 'The ultimate showdown of professional squads. Register your team and battle for the massive prize pool!',
-          date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-          entryFee: 50,
-          prizePool: 5000,
-          maxTeams: 16,
-          registeredTeams: [],
-          status: 'upcoming',
-          results: {
-            winner: null,
-            runnerUp: null,
-            third: null
-          },
-          createdAt: new Date().toISOString(),
-          slots: {}
-        };
-        console.log(`[PMSL Sync] Uploading default tournament to Firestore...`);
-        setDoc(doc(db, 'tournaments', defaultTournament.id), defaultTournament).catch(err => {
-          console.error("Sync error: Failed to upload default tournament:", err);
-        });
-        this.setCollectionFromFirestore<Tournament>('tournaments', [defaultTournament]);
+        // If Firestore is empty, let's check if we have tournaments in our local cache first!
+        const cached = localStorage.getItem('pmsl_col_tournaments');
+        let localTours: Tournament[] = [];
+        if (cached) {
+          try {
+            localTours = JSON.parse(cached);
+          } catch (e) {}
+        }
+
+        if (localTours.length > 0) {
+          console.log(`[PMSL Sync] Restoring local tournaments to empty Firestore...`);
+          localTours.forEach(t => {
+            setDoc(doc(db, 'tournaments', t.id), t).catch(err => {
+              console.error("Failed to restore tournament:", err);
+            });
+          });
+          this.setCollectionFromFirestore<Tournament>('tournaments', localTours);
+        } else {
+          const defaultTournament: Tournament = {
+            id: 'tour-pmsl-arena-season-1',
+            name: 'PMSL Arena Season 1 Grand League',
+            description: 'The ultimate showdown of professional squads. Register your team and battle for the massive prize pool!',
+            date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+            entryFee: 50,
+            prizePool: 5000,
+            maxTeams: 16,
+            registeredTeams: [],
+            status: 'upcoming',
+            results: {
+              winner: null,
+              runnerUp: null,
+              third: null
+            },
+            createdAt: new Date().toISOString(),
+            slots: {}
+          };
+          console.log(`[PMSL Sync] Uploading default tournament to Firestore...`);
+          setDoc(doc(db, 'tournaments', defaultTournament.id), defaultTournament).catch(err => {
+            console.error("Sync error: Failed to upload default tournament:", err);
+          });
+          this.setCollectionFromFirestore<Tournament>('tournaments', [defaultTournament]);
+        }
       } else {
         this.setCollectionFromFirestore<Tournament>('tournaments', firestoreTournaments);
       }
@@ -224,6 +289,26 @@ export class MockDatabase {
       snapshot.forEach((doc) => {
         firestoreTransactions.push({ id: doc.id, ...doc.data() } as Transaction);
       });
+
+      if (firestoreTransactions.length === 0) {
+        const cached = localStorage.getItem('pmsl_col_transactions');
+        let localTxs: Transaction[] = [];
+        if (cached) {
+          try {
+            localTxs = JSON.parse(cached);
+          } catch (e) {}
+        }
+        if (localTxs.length > 0) {
+          console.log(`[PMSL Sync] Restoring local transactions to empty Firestore...`);
+          localTxs.forEach(t => {
+            setDoc(doc(db, 'transactions', t.id), t).catch(err => {
+              console.error("Failed to restore transaction:", err);
+            });
+          });
+          this.setCollectionFromFirestore<Transaction>('transactions', localTxs);
+          return;
+        }
+      }
       this.setCollectionFromFirestore<Transaction>('transactions', firestoreTransactions);
     }, (error) => {
       console.error("Firestore transactions listener error:", error);
@@ -284,14 +369,27 @@ export class MockDatabase {
   // --- Users Operations ---
   static getUser(uid: string): UserProfile | null {
     const users = this.getCollection<UserProfile>('users');
-    return users.find(u => u.uid === uid) || null;
+    const found = users.find(u => u.uid === uid);
+    if (found) {
+      localStorage.setItem(`pmsl_user_profile_${uid}`, JSON.stringify(found));
+      return found;
+    }
+    const backup = localStorage.getItem(`pmsl_user_profile_${uid}`);
+    if (backup) {
+      try {
+        return JSON.parse(backup);
+      } catch (e) {}
+    }
+    return null;
   }
 
   static async getUserFromFirestore(uid: string): Promise<UserProfile | null> {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
-        return { uid, ...userDoc.data() } as UserProfile;
+        const u = { uid, ...userDoc.data() } as UserProfile;
+        localStorage.setItem(`pmsl_user_profile_${uid}`, JSON.stringify(u));
+        return u;
       }
     } catch (err) {
       console.error("Error fetching user from Firestore:", err);
@@ -308,6 +406,7 @@ export class MockDatabase {
       users.push(user);
     }
     this.setCollectionFromFirestore<UserProfile>('users', users);
+    localStorage.setItem(`pmsl_user_profile_${user.uid}`, JSON.stringify(user));
 
     // Sync to Firestore
     setDoc(doc(db, 'users', user.uid), user).catch(err => {

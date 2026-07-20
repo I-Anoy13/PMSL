@@ -6,9 +6,20 @@ import firebaseAppletConfig from '../../firebase-applet-config.json';
 // Detect if we should use the custom PMSL project or the platform-provided workspace project.
 // We use the PMSL project if we are on the custom domain, or if VITE_FIREBASE_PROJECT_ID is set to 'pmslleagu',
 // or if the default system config isn't available.
+const isPreviewEnv = typeof window !== 'undefined' && (
+  window.location.hostname.includes('run.app') ||
+  window.location.hostname.includes('localhost') ||
+  window.location.hostname.includes('127.0.0.1')
+);
+
+// We use the custom production PMSL project if we are in production (not in preview),
+// or if the hostname includes 'pmslleagu', or if VITE_FIREBASE_PROJECT_ID is 'pmslleagu',
+// or if the default workspace config isn't available.
 const isPMSL = 
+  !isPreviewEnv ||
   (import.meta as any).env.VITE_FIREBASE_PROJECT_ID === 'pmslleagu' ||
   (typeof window !== 'undefined' && (
+    window.location.hostname.includes('pmslleagu') ||
     window.location.hostname === 'pmslleagu.firebaseapp.com' || 
     window.location.hostname === 'pmslleagu.web.app' ||
     window.location.hostname === 'pmslleagu.com'
@@ -49,12 +60,6 @@ googleProvider.setCustomParameters({
 // For development/preview envs, we use the custom workspace database ID.
 // For live production environments (custom domains or standard Firebase hosting),
 // we default to the standard default database ('undefined') so the user doesn't need to specify one.
-const isPreviewEnv = typeof window !== 'undefined' && (
-  window.location.hostname.includes('run.app') ||
-  window.location.hostname.includes('localhost') ||
-  window.location.hostname.includes('127.0.0.1')
-);
-
 const databaseId = (import.meta as any).env.VITE_FIREBASE_DATABASE_ID || (
   isPMSL
     ? undefined
